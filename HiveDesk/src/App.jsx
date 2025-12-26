@@ -17,19 +17,22 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" />} />
           <Route path="/login" element={<LoginPage />} />
-          
+
           <Route path="/hr-dashboard" element={
-            <ProtectedRoute role="hr">
-              <HRDashboard />
-            </ProtectedRoute>
+            // <ProtectedRoute role="hr">
+            //   <HRDashboard />
+            // </ProtectedRoute>
+            <HRDashboard />
+
           } />
-          
+
           <Route path="/employee-dashboard" element={
-            <ProtectedRoute>
-              <EmployeeDashboard />
-            </ProtectedRoute>
+            // <ProtectedRoute>
+            //   <EmployeeDashboard />
+            // </ProtectedRoute>
+            <EmployeeDashboard />
           } />
-          
+
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </Router>

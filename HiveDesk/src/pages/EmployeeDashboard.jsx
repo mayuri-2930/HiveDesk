@@ -101,7 +101,7 @@ const EmployeeDashboard = () => {
 
       <div className="p-6">
         {/* Welcome */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-8 mb-8">
+        <div className="bg-gradient-to-red from-blue-600 to-indigo-700 text-white rounded-2xl p-8 mb-8">
           <h1 className="text-3xl font-bold mb-2">
             Welcome back 👋
           </h1>
