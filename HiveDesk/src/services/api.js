@@ -12,21 +12,7 @@ const api = axios.create({
   },
 });
 
-// Helper function to clean and validate parameters
-const cleanParams = (name, role) => {
-  // Remove spaces, special characters, and convert to lowercase
-  const cleanName = name 
-    ? name.toString().replace(/\s+/g, '').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase()
-    : '';
-  
-  const cleanRole = role 
-    ? role.toString().toLowerCase().replace(/\s+/g, '')
-    : '';
-  
-  return { cleanName, cleanRole };
-};
-
-// Request interceptor
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -35,14 +21,17 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor
+// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Clear auth data and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -52,15 +41,39 @@ api.interceptors.response.use(
   }
 );
 
+// Helper function to get user params from localStorage
+const getUserParams = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) return { name: '', role: '' };
+    
+    // Extract first name from full name (e.g., "John HR" -> "John")
+    const firstName = user.name ? user.name.split(' ')[0].toLowerCase() : 'user';
+    const role = user.role ? user.role.toLowerCase() : 'employee';
+    
+    return { name: firstName, role };
+  } catch (error) {
+    console.error('Error getting user params:', error);
+    return { name: 'user', role: 'employee' };
+  }
+};
+
+// Helper to encode name for URL
+const encodeUserName = (name) => {
+  return encodeURIComponent(name.toLowerCase().replace(/\s+/g, ''));
+};
+
 // Authentication API
 export const authAPI = {
+  // Login with email and password
   login: async (email, password) => {
     try {
       const formData = new FormData();
-      formData.append('email', email); // FastAPI OAuth2 expects 'username'
+      formData.append('email', email);
       formData.append('password', password);
 
-      const response = await api.post('/auth/login', formData);
+      const response = await api.post(`${API_BASE_URL}/auth/login`, formData);
+      
       return {
         success: true,
         data: response.data
@@ -80,9 +93,10 @@ export const authAPI = {
     }
   },
 
+  // Get current user info
   getCurrentUser: async () => {
     try {
-      const response = await api.get('/auth/me');
+      const response = await api.get(`${API_BASE_URL}/auth/me`);
       return {
         success: true,
         data: response.data
@@ -96,9 +110,10 @@ export const authAPI = {
     }
   },
 
+  // Verify token
   verifyToken: async () => {
     try {
-      const response = await api.get('/auth/verify');
+      const response = await api.get(`${API_BASE_URL}/auth/verify`);
       return {
         success: true,
         data: response.data
@@ -112,9 +127,10 @@ export const authAPI = {
     }
   },
 
+  // Register new user
   register: async (userData) => {
     try {
-      const response = await api.post('/auth/register', userData);
+      const response = await api.post(`${API_BASE_URL}/auth/register`, userData);
       return {
         success: true,
         data: response.data
@@ -141,12 +157,11 @@ export const authAPI = {
 
 // Dashboard API
 export const dashboardAPI = {
-  getDashboard: async (name, role) => {
+  // Get Dashboard - Fixed: No name/role needed in URL, backend extracts from JWT
+  getDashboard: async () => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
-      console.log('Fetching dashboard for:', { cleanName, cleanRole });
-      
-      const response = await api.get(`/${cleanName}/${cleanRole}/dashboard`);
+      console.log('Fetching dashboard data...');
+      const response = await api.get(`${API_BASE_URL}/dashboard/`);
       return {
         success: true,
         data: response.data
@@ -161,14 +176,21 @@ export const dashboardAPI = {
   }
 };
 
-// Employee Management API
+// Employee Management API (HR only)
 export const employeeAPI = {
-  getEmployees: async (name, role) => {
+  // Get All Employees with pagination
+  getEmployees: async (page = 1, pageSize = 10) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
-      console.log('Fetching employees for:', { cleanName, cleanRole });
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
+      console.log('Fetching employees for:', { encodedName, role: 'hr' });
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/employees`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/hr/employees`, {
+        params: {
+          page,
+          page_size: pageSize
+        }
+      });
       return {
         success: true,
         data: response.data
@@ -182,12 +204,14 @@ export const employeeAPI = {
     }
   },
 
-  getEmployee: async (name, role, employeeId) => {
+  // Get Employee Details
+  getEmployee: async (employeeId) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
-      console.log('Fetching employee details:', { cleanName, cleanRole, employeeId });
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
+      console.log('Fetching employee details:', { encodedName, role: 'hr', employeeId });
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/manage/${employeeId}`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/hr/manage/${employeeId}`);
       return {
         success: true,
         data: response.data
@@ -201,11 +225,13 @@ export const employeeAPI = {
     }
   },
 
-  updateEmployee: async (name, role, employeeId, employeeData) => {
+  // Update Employee
+  updateEmployee: async (employeeId, employeeData) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.put(`/${cleanName}/${cleanRole}/employees/${employeeId}`, employeeData);
+      const response = await api.put(`${API_BASE_URL}/${encodedName}/hr/employees/${employeeId}`, employeeData);
       return {
         success: true,
         data: response.data
@@ -219,11 +245,13 @@ export const employeeAPI = {
     }
   },
 
-  deleteEmployee: async (name, role, employeeId) => {
+  // Delete Employee
+  deleteEmployee: async (employeeId) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.delete(`/${cleanName}/${cleanRole}/employees/${employeeId}`);
+      const response = await api.delete(`${API_BASE_URL}/${encodedName}/hr/employees/${employeeId}`);
       return {
         success: true,
         data: response.data
@@ -237,11 +265,13 @@ export const employeeAPI = {
     }
   },
 
-  addEmployee: async (name, employeeData) => {
+  // Add Employee
+  addEmployee: async (employeeData) => {
     try {
-      const { cleanName } = cleanParams(name, 'hr');
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.post(`/${cleanName}/hr/employees`, employeeData);
+      const response = await api.post(`${API_BASE_URL}/${encodedName}/hr/employees`, employeeData);
       return {
         success: true,
         data: response.data
@@ -258,12 +288,19 @@ export const employeeAPI = {
 
 // Task Management API
 export const taskAPI = {
-  getTasks: async (name, role) => {
+  // Get Tasks (role-based: HR sees all, Employee sees assigned)
+  getTasks: async (page = 1, pageSize = 10) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
-      console.log('Fetching tasks for:', { cleanName, cleanRole });
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
+      console.log('Fetching tasks for:', { encodedName, role });
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/tasks`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/${role}/tasks`, {
+        params: {
+          page,
+          page_size: pageSize
+        }
+      });
       return {
         success: true,
         data: response.data
@@ -277,11 +314,13 @@ export const taskAPI = {
     }
   },
 
-  createTask: async (name, role, taskData) => {
+  // Create Task (HR only)
+  createTask: async (taskData) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.post(`/${cleanName}/${cleanRole}/tasks`, taskData);
+      const response = await api.post(`${API_BASE_URL}/${encodedName}/hr/tasks`, taskData);
       return {
         success: true,
         data: response.data
@@ -295,11 +334,13 @@ export const taskAPI = {
     }
   },
 
-  updateTask: async (name, role, taskId, taskData) => {
+  // Update Task (HR only)
+  updateTask: async (taskId, taskData) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.put(`/${cleanName}/${cleanRole}/tasks/${taskId}`, taskData);
+      const response = await api.put(`${API_BASE_URL}/${encodedName}/hr/tasks/${taskId}`, taskData);
       return {
         success: true,
         data: response.data
@@ -313,11 +354,13 @@ export const taskAPI = {
     }
   },
 
-  deleteTask: async (name, role, taskId) => {
+  // Delete Task (HR only)
+  deleteTask: async (taskId) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.delete(`/${cleanName}/${cleanRole}/tasks/${taskId}`);
+      const response = await api.delete(`${API_BASE_URL}/${encodedName}/hr/tasks/${taskId}`);
       return {
         success: true,
         data: response.data
@@ -331,29 +374,13 @@ export const taskAPI = {
     }
   },
 
-  completeTask: async (name, role, taskData) => {
+  // Assign Task (HR only)
+  assignTask: async (taskData) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.post(`/${cleanName}/${cleanRole}/tasks/complete`, taskData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Complete task API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to complete task'
-      };
-    }
-  },
-
-  assignTask: async (name, taskData) => {
-    try {
-      const { cleanName } = cleanParams(name, 'hr');
-      
-      const response = await api.post(`/${cleanName}/hr/assign-task`, taskData);
+      const response = await api.post(`${API_BASE_URL}/${encodedName}/hr/assign-task`, taskData);
       return {
         success: true,
         data: response.data
@@ -365,17 +392,44 @@ export const taskAPI = {
         error: error.response?.data?.detail || 'Failed to assign task'
       };
     }
+  },
+
+  // Complete Task (Employee only)
+  completeTask: async (taskData) => {
+    try {
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
+      
+      const response = await api.post(`${API_BASE_URL}/${encodedName}/employee/tasks/complete`, taskData);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Complete task API error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to complete task'
+      };
+    }
   }
 };
 
 // Document Management API
 export const documentAPI = {
-  getDocuments: async (name, role) => {
+  // Get Documents (role-based)
+  getDocuments: async (page = 1, pageSize = 10) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
-      console.log('Fetching documents for:', { cleanName, cleanRole });
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
+      console.log('Fetching documents for:', { encodedName, role });
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/documents`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/${role}/documents`, {
+        params: {
+          page,
+          page_size: pageSize
+        }
+      });
       return {
         success: true,
         data: response.data
@@ -389,11 +443,13 @@ export const documentAPI = {
     }
   },
 
-  uploadDocument: async (name, role, formData) => {
+  // Upload Document (Employee only)
+  uploadDocument: async (formData) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.post(`/${cleanName}/${cleanRole}/documents/upload`, formData, {
+      const response = await api.post(`${API_BASE_URL}/${encodedName}/employee/documents/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -414,11 +470,18 @@ export const documentAPI = {
 
 // Training API
 export const trainingAPI = {
-  getTraining: async (name, role) => {
+  // Get Training Modules (role-based)
+  getTraining: async (page = 1, pageSize = 10) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/training`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/${role}/training`, {
+        params: {
+          page,
+          page_size: pageSize
+        }
+      });
       return {
         success: true,
         data: response.data
@@ -432,11 +495,13 @@ export const trainingAPI = {
     }
   },
 
-  updateTraining: async (name, role, trainingId, progressData) => {
+  // Update Training Progress (Employee only)
+  updateTraining: async (trainingId, progressData) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.put(`/${cleanName}/${cleanRole}/training/${trainingId}`, progressData);
+      const response = await api.put(`${API_BASE_URL}/${encodedName}/employee/training/${trainingId}`, progressData);
       return {
         success: true,
         data: response.data
@@ -451,13 +516,15 @@ export const trainingAPI = {
   }
 };
 
-// Performance API
+// Performance API (HR only)
 export const performanceAPI = {
-  getPerformance: async (name, role) => {
+  // Get Overall Performance
+  getPerformance: async () => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/performance`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/hr/performance`);
       return {
         success: true,
         data: response.data
@@ -471,11 +538,13 @@ export const performanceAPI = {
     }
   },
 
-  getEmployeePerformance: async (name, role, employeeId) => {
+  // Get Employee Performance
+  getEmployeePerformance: async (employeeId) => {
     try {
-      const { cleanName, cleanRole } = cleanParams(name, role);
+      const { name, role } = getUserParams();
+      const encodedName = encodeUserName(name);
       
-      const response = await api.get(`/${cleanName}/${cleanRole}/performance/${employeeId}`);
+      const response = await api.get(`${API_BASE_URL}/${encodedName}/hr/performance/${employeeId}`);
       return {
         success: true,
         data: response.data
@@ -522,17 +591,42 @@ export const clearAuthData = () => {
   localStorage.removeItem('user');
 };
 
-// New helper to get clean user parameters
-export const getUserParams = () => {
-  const user = getUserInfo();
-  if (!user) return { name: '', role: '' };
+// New helper function for components
+export const getEncodedUserParams = () => {
+  const { name, role } = getUserParams();
+  return {
+    encodedName: encodeUserName(name),
+    role
+  };
+};
+
+// Debug function to test endpoints
+export const testEndpoints = async () => {
+  const { encodedName, role } = getEncodedUserParams();
+  const endpoints = [
+    { name: 'Dashboard', path: `${API_BASE_URL}/dashboard/`, method: 'GET' },
+    { name: 'Employees', path: `${API_BASE_URL}/${encodedName}/hr/employees`, method: 'GET' },
+    { name: 'Tasks', path: `${API_BASE_URL}/${encodedName}/${role}/tasks`, method: 'GET' },
+    { name: 'Documents', path: `${API_BASE_URL}/${encodedName}/${role}/documents`, method: 'GET' },
+    { name: 'Training', path: `${API_BASE_URL}/${encodedName}/${role}/training`, method: 'GET' },
+    { name: 'Performance', path: `${API_BASE_URL}/${encodedName}/hr/performance`, method: 'GET' }
+  ];
+
+  console.log('🔍 Testing API Endpoints...');
+  console.log('User params:', { encodedName, role });
   
-  // Extract username from email if name is not available
-  const name = user.username || user.name || (user.email ? user.email.split('@')[0] : 'user');
-  const role = user.role || 'employee';
+  for (const endpoint of endpoints) {
+    try {
+      const response = await api.get(endpoint.path);
+      console.log(`✅ ${endpoint.name}: ${endpoint.method} ${endpoint.path} - Status: ${response.status}`);
+    } catch (error) {
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail || error.message;
+      console.log(`❌ ${endpoint.name}: ${endpoint.method} ${endpoint.path} - Status: ${status || 'No response'} - ${detail}`);
+    }
+  }
   
-  const { cleanName, cleanRole } = cleanParams(name, role);
-  return { cleanName, cleanRole, originalName: name, originalRole: role };
+  console.log('🔍 API Endpoint Testing Complete');
 };
 
 export default api;

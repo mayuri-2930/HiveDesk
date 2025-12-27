@@ -6,9 +6,7 @@ import {
   dashboardAPI, 
   employeeAPI, 
   taskAPI, 
-  documentAPI, 
-  trainingAPI,
-  performanceAPI 
+  documentAPI 
 } from '../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -22,10 +20,13 @@ import {
   FaCheckCircle,
   FaExclamationTriangle,
   FaLightbulb,
- 
+  FaTasks,
+  FaFileAlt,
+  FaChartBar,
+  FaFilter,
+  FaCalendarAlt,
+  FaDownload
 } from "react-icons/fa";
-// import {FaWarning} from 'react-icons/fa6';
-// import { FaTrendingUp } from "react-icons/fa";
 import {
   MdDashboard,
   MdGroup,
@@ -33,19 +34,83 @@ import {
   MdDescription,
   MdSettings
 } from "react-icons/md";
+
+// Default mock data
+const DEFAULT_DASHBOARD_DATA = {
+  stats: {
+    total_onboarded: 142,
+    in_progress: 28,
+    pending_verification: 7,
+    completion_rate: 94
+  },
+  velocity_data: [
+    { month: 'May', hired: 20, projected: 25 },
+    { month: 'Jun', hired: 25, projected: 30 },
+    { month: 'Jul', hired: 30, projected: 35 },
+    { month: 'Aug', hired: 35, projected: 40 },
+    { month: 'Sep', hired: 40, projected: 45 },
+    { month: 'Oct', hired: 45, projected: 50 }
+  ],
+  department_distribution: [
+    { department: 'Engineering', percentage: 42 },
+    { department: 'Sales', percentage: 28 },
+    { department: 'Product', percentage: 18 },
+    { department: 'Marketing', percentage: 12 }
+  ],
+  recent_candidates: [
+    { id: 1, name: 'Michael Foster', role: 'Senior Engineer', department: 'Product', status: 'hired' },
+    { id: 2, name: 'Sarah Connor', role: 'Marketing Lead', department: 'Marketing', status: 'pending' },
+    { id: 3, name: 'David Chen', role: 'UX Designer', department: 'Design', status: 'review' }
+  ],
+  ai_insights: [
+    {
+      type: 'warning',
+      title: 'Bottleneck Detected',
+      message: 'Engineering background checks are taking 3 days longer than average this month.',
+      action: 'View Pending Checks'
+    },
+    {
+      type: 'suggestion',
+      title: 'Recommendation',
+      message: '5 candidates are pending I-9 verification for over 48 hours. Sending a reminder could improve velocity by 15%.',
+      action: 'Nudge All'
+    },
+    {
+      type: 'positive',
+      title: 'Efficiency Up',
+      message: 'Sales onboarding time has decreased by 12% since the new documentation process was implemented last week.'
+    }
+  ]
+};
+
+const DEFAULT_EMPLOYEES = [
+  { id: 1, name: 'John Doe', email: 'john@company.com', department: 'Engineering', position: 'Software Engineer', status: 'Active', progress: 85 },
+  { id: 2, name: 'Jane Smith', email: 'jane@company.com', department: 'Product', position: 'Product Manager', status: 'Onboarding', progress: 45 },
+  { id: 3, name: 'Robert Johnson', email: 'robert@company.com', department: 'Design', position: 'UX Designer', status: 'Active', progress: 90 }
+];
+
+const DEFAULT_TASKS = [
+  { id: 1, title: 'Review John Doe documents', assigned_to: 'John Doe', due_date: '2024-02-01', status: 'completed' },
+  { id: 2, title: 'Assign training modules', assigned_to: 'Jane Smith', due_date: '2024-02-05', status: 'in_progress' },
+  { id: 3, title: 'Schedule orientation', assigned_to: 'Robert Johnson', due_date: '2024-02-03', status: 'pending' }
+];
+
 const HRDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState(null);
-  const [employees, setEmployees] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [dashboardData, setDashboardData] = useState(DEFAULT_DASHBOARD_DATA);
+  const [employees, setEmployees] = useState(DEFAULT_EMPLOYEES);
+  const [tasks, setTasks] = useState(DEFAULT_TASKS);
   const [documents, setDocuments] = useState([]);
   const [activeSection, setActiveSection] = useState('overview');
 
   // Fetch all dashboard data
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      navigate('/login');
+      return;
+    }
 
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -54,18 +119,21 @@ const HRDashboard = () => {
         const dashboardResponse = await dashboardAPI.getDashboard(user.name, user.role);
         if (dashboardResponse.success) {
           setDashboardData(dashboardResponse.data);
+        } else {
+          toast.error('Using demo dashboard data');
+          console.log('Using demo dashboard data');
         }
 
         // Fetch employees
         const employeesResponse = await employeeAPI.getEmployees(user.name, user.role);
         if (employeesResponse.success) {
-          setEmployees(employeesResponse.data.employees || []);
+          setEmployees(employeesResponse.data.employees || DEFAULT_EMPLOYEES);
         }
 
         // Fetch tasks
         const tasksResponse = await taskAPI.getTasks(user.name, user.role);
         if (tasksResponse.success) {
-          setTasks(tasksResponse.data.tasks || []);
+          setTasks(tasksResponse.data.tasks || DEFAULT_TASKS);
         }
 
         // Fetch documents
@@ -76,74 +144,15 @@ const HRDashboard = () => {
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        toast.error('Failed to load dashboard data');
-        
-        // Mock data for development
-        setDashboardData({
-          stats: {
-            total_onboarded: 142,
-            in_progress: 28,
-            pending_verification: 7,
-            completion_rate: 94
-          },
-          velocity_data: [
-            { month: 'May', hired: 20, projected: 25 },
-            { month: 'Jun', hired: 25, projected: 30 },
-            { month: 'Jul', hired: 30, projected: 35 },
-            { month: 'Aug', hired: 35, projected: 40 },
-            { month: 'Sep', hired: 40, projected: 45 },
-            { month: 'Oct', hired: 45, projected: 50 }
-          ],
-          department_distribution: [
-            { department: 'Engineering', percentage: 42 },
-            { department: 'Sales', percentage: 28 },
-            { department: 'Product', percentage: 18 },
-            { department: 'Marketing', percentage: 12 }
-          ],
-          recent_candidates: [
-            { id: 1, name: 'Michael Foster', role: 'Senior Engineer', department: 'Product', status: 'hired' },
-            { id: 2, name: 'Sarah Connor', role: 'Marketing Lead', department: 'Marketing', status: 'pending' },
-            { id: 3, name: 'David Chen', role: 'UX Designer', department: 'Design', status: 'review' }
-          ],
-          ai_insights: [
-            {
-              type: 'warning',
-              title: 'Bottleneck Detected',
-              message: 'Engineering background checks are taking 3 days longer than average this month.',
-              action: 'View Pending Checks'
-            },
-            {
-              type: 'suggestion',
-              title: 'Recommendation',
-              message: '5 candidates are pending I-9 verification for over 48 hours. Sending a reminder could improve velocity by 15%.',
-              action: 'Nudge All'
-            },
-            {
-              type: 'positive',
-              title: 'Efficiency Up',
-              message: 'Sales onboarding time has decreased by 12% since the new documentation process was implemented last week.'
-            }
-          ]
-        });
-
-        setEmployees([
-          { id: 1, name: 'John Doe', email: 'john@company.com', department: 'Engineering', position: 'Software Engineer', status: 'Active', progress: 85 },
-          { id: 2, name: 'Jane Smith', email: 'jane@company.com', department: 'Product', position: 'Product Manager', status: 'Onboarding', progress: 45 },
-          { id: 3, name: 'Robert Johnson', email: 'robert@company.com', department: 'Design', position: 'UX Designer', status: 'Active', progress: 90 }
-        ]);
-
-        setTasks([
-          { id: 1, title: 'Review John Doe documents', assigned_to: 'John Doe', due_date: '2024-02-01', status: 'completed' },
-          { id: 2, title: 'Assign training modules', assigned_to: 'Jane Smith', due_date: '2024-02-05', status: 'in_progress' },
-          { id: 3, title: 'Schedule orientation', assigned_to: 'Robert Johnson', due_date: '2024-02-03', status: 'pending' }
-        ]);
+        toast.error('Failed to load live data. Showing demo data.');
+        // Keep using default mock data that's already set
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [user]);
+  }, [user, navigate]);
 
   const handleLogout = () => {
     logout();
@@ -178,10 +187,10 @@ const HRDashboard = () => {
 
   const getInsightIcon = (type) => {
     switch(type) {
-      case 'warning': return <FaBell className="text-red-600" />;
+      case 'warning': return <FaExclamationTriangle className="text-red-600" />;
       case 'suggestion': return <FaLightbulb className="text-indigo-600" />;
-      case 'positive': return <FaLightbulb className="text-emerald-600" />;
-      default: return <FaBell className="text-gray-600" />;
+      case 'positive': return <FaCheckCircle className="text-emerald-600" />;
+      default: return <FaLightbulb className="text-gray-600" />;
     }
   };
 
@@ -225,7 +234,10 @@ const HRDashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -331,28 +343,28 @@ const HRDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 title="Total Onboarded"
-                value={dashboardData?.stats?.total_onboarded || 142}
+                value={dashboardData.stats.total_onboarded}
                 icon={FaUserPlus}
                 color="bg-blue-50 dark:bg-blue-900/20 text-blue-600"
                 change="+12%"
               />
               <StatCard
                 title="In Progress"
-                value={dashboardData?.stats?.in_progress || 28}
+                value={dashboardData.stats.in_progress}
                 icon={FaTasks}
                 color="bg-amber-50 dark:bg-amber-900/20 text-amber-600"
                 change="+5%"
               />
               <StatCard
                 title="Pending Verification"
-                value={dashboardData?.stats?.pending_verification || 7}
+                value={dashboardData.stats.pending_verification}
                 icon={FaFileAlt}
                 color="bg-red-50 dark:bg-red-900/20 text-red-600"
                 change="-2%"
               />
               <StatCard
                 title="Completion Rate"
-                value={`${dashboardData?.stats?.completion_rate || 94}%`}
+                value={`${dashboardData.stats.completion_rate}%`}
                 icon={FaChartBar}
                 color="bg-purple-50 dark:bg-purple-900/20 text-purple-600"
                 change="Target: 95%"
@@ -385,7 +397,7 @@ const HRDashboard = () => {
                   <div className="w-full h-[280px]">
                     {/* Simplified Chart */}
                     <div className="w-full h-full flex items-end justify-between pt-4">
-                      {dashboardData?.velocity_data?.map((data, index) => (
+                      {dashboardData.velocity_data.map((data, index) => (
                         <div key={index} className="flex flex-col items-center w-16">
                           <div className="w-8 bg-gray-200 dark:bg-gray-700 rounded-t mb-2" style={{ height: `${data.projected * 4}px` }}>
                             <div 
@@ -406,7 +418,7 @@ const HRDashboard = () => {
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
                     <h3 className="text-gray-900 dark:text-white text-lg font-bold mb-4">Department Distribution</h3>
                     <div className="flex flex-col gap-5 flex-1 justify-center">
-                      {dashboardData?.department_distribution?.map((dept, index) => (
+                      {dashboardData.department_distribution.map((dept, index) => (
                         <div key={index} className="w-full">
                           <div className="flex justify-between mb-1 text-sm font-medium">
                             <span className="text-gray-700 dark:text-gray-300">{dept.department}</span>
@@ -430,7 +442,7 @@ const HRDashboard = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto">
                       <div className="flex flex-col">
-                        {dashboardData?.recent_candidates?.map((candidate, index) => (
+                        {dashboardData.recent_candidates.map((candidate, index) => (
                           <div key={index} className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
                               <span className="text-blue-600 font-bold">
@@ -474,7 +486,7 @@ const HRDashboard = () => {
                   </div>
                   
                   <div className="p-6 flex flex-col gap-6 relative z-10 overflow-y-auto max-h-[800px]">
-                    {dashboardData?.ai_insights?.map((insight, index) => (
+                    {dashboardData.ai_insights.map((insight, index) => (
                       <div key={index} className={`flex flex-col gap-3 p-4 rounded-lg border ${getInsightColor(insight.type)}`}>
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5">
