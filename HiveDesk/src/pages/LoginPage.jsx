@@ -1,139 +1,250 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '../services/firebaseConfig'
+import { useNavigate, Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
+import { FaGoogle, FaEye, FaEyeSlash, FaBuilding, FaUser, FaRocket } from 'react-icons/fa'
+import { authAPI } from '../services/api'
 
 const LoginPage = () => {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { login } = useAuth()
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  })
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e) => {
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validation
+    if (!formData.email || !formData.password) {
+      toast.error('Please fill in all fields')
+      return
+    }
+    
     setLoading(true)
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      )
-
-      const userEmail = userCredential.user.email
-
-      // SIMPLE ROLE LOGIC (SAFE FOR DEMO)
-      if (userEmail.includes('hr')) {
-        localStorage.setItem('role', 'hr')
-        navigate('/hr-dashboard')
+      // API call for authentication
+      const response = await login(formData.email, formData.password)
+      
+      if (response.success) {
+        const { access_token, token_type } = response.data
+        
+        // Extract user info from email or response data
+        const userData = {
+          email: formData.email,
+          name: formData.email.split('@')[0],
+          // Try to get role from response, otherwise determine from email
+          role: response.data.role || (formData.email.includes('hr') ? 'hr' : 'employee'),
+          token: access_token,
+          tokenType: token_type
+        }
+        
+        // Store token and user data
+        localStorage.setItem('token', access_token)
+        localStorage.setItem('user', JSON.stringify(userData))
+        
+        // Call login from AuthContext
+        login(userData)
+        toast.success(`Welcome back, ${userData.name}! 🎉`)
+        
+        // Navigate based on role
+        if (userData.role === 'hr') {
+          navigate('/hr-dashboard')
+        } else {
+          navigate('/employee-dashboard')
+        }
       } else {
-        localStorage.setItem('role', 'employee')
-        navigate('/employee-dashboard')
+        toast.error(response.error || 'Login failed! Please check your credentials.')
       }
-
-      toast.success('Login successful!')
     } catch (error) {
-      toast.error(error.message)
+      console.error('Login error:', error)
+      toast.error('Login failed! Please check your credentials.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 flex items-center justify-center px-4">
-      <div className="w-full max-w-4xl bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="w-full max-w-md">
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-white/20 p-4 rounded-full">
+                <FaBuilding className="text-4xl text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              HR Onboarding System
+            </h1>
+            <p className="text-blue-100">
+              Intelligent onboarding for modern workplaces
+            </p>
+          </div>
 
-        {/* Left Branding Section */}
-        <div className="hidden md:flex flex-col justify-center p-10 text-white">
-          <h1 className="text-4xl font-bold mb-4">
-            Intelligent HR Onboarding
-          </h1>
-          <p className="text-lg text-white/80">
-            Automate onboarding, verify documents with AI, and deliver
-            personalized employee experiences.
-          </p>
+          {/* Form */}
+          <div className="p-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pl-10"
+                    placeholder="you@company.com"
+                    required
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-8 space-y-3 text-sm text-white/70">
-            <p>✔ AI-powered document verification</p>
-            <p>✔ Automated task assignment</p>
-            <p>✔ Role-based onboarding</p>
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pl-10 pr-12"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    ) : (
+                      <FaEye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="rememberMe"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                    Remember me
+                  </label>
+                </div>
+                <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+                  Forgot password?
+                </button>
+              </div>
+
+              {/* Login Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-3 px-4 rounded-lg font-medium text-white transition-all duration-300 ${
+                  loading
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 shadow-md hover:shadow-lg'
+                }`}
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="spinner mr-3"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <FaRocket />
+                    Sign In
+                  </div>
+                )}
+              </button>
+
+              {/* Signup Link */}
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Don't have an account?{' '}
+                  <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                    Sign up
+                  </Link>
+                </p>
+              </div>
+            </form>
+
+            {/* Divider */}
+            <div className="mt-8 mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-gray-500">Or continue with</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Google Sign In */}
+            <button
+              type="button"
+              onClick={() => toast.info('Google authentication will be available soon')}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700"
+            >
+              <FaGoogle className="text-red-500" />
+              Sign in with Google
+            </button>
           </div>
         </div>
 
-        {/* Right Login Form */}
-        <div className="bg-white p-8 md:p-10">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Welcome Back
-          </h2>
-          <p className="text-sm text-gray-500 mb-6">
-            Sign in to continue to your dashboard
-          </p>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-600">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="you@company.com"
-                required
-              />
+        {/* Info Note */}
+        <div className="mt-6 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-md">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-600 font-bold">ℹ️</span>
+              </div>
             </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-600">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 rounded-lg font-semibold hover:opacity-90 transition disabled:opacity-60"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 text-sm text-center text-gray-500">
-            Demo Access
-            <div className="flex justify-center gap-4 mt-3">
-              <button
-                onClick={() => {
-                  setEmail('hr@company.com')
-                  setPassword('password')
-                }}
-                className="px-4 py-1.5 border rounded-full text-blue-600 hover:bg-blue-50"
-              >
-                HR Login
-              </button>
-
-              <button
-                onClick={() => {
-                  setEmail('employee@company.com')
-                  setPassword('password')
-                }}
-                className="px-4 py-1.5 border rounded-full text-purple-600 hover:bg-purple-50"
-              >
-                Employee Login
-              </button>
+            <div className="ml-3">
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold">Note:</span> Use your registered credentials to login.
+                Contact your administrator if you need access.
+              </p>
             </div>
           </div>
-
         </div>
       </div>
     </div>

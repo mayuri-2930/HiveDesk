@@ -1,70 +1,47 @@
-// API Endpoints
-export const API_ENDPOINTS = {
-  // Employee Management
-  EMPLOYEES: '/api/employees',
-  EMPLOYEE_BY_ID: (id) => `/api/employees/${id}`,
-  
-  // Documents
-  DOCUMENTS: '/api/documents',
-  UPLOAD_DOCUMENT: '/api/documents/upload',
-  VERIFY_DOCUMENT: (id) => `/api/documents/verify/${id}`,
-  
-  // Tasks
-  TASKS: '/api/tasks',
-  EMPLOYEE_TASKS: (id) => `/api/employees/${id}/tasks`,
-  
-  // Training
-  TRAINING: '/api/training',
-  EMPLOYEE_TRAINING: (id) => `/api/employees/${id}/training`,
-  
-  // Auth
-  LOGIN: '/api/auth/login',
-  LOGOUT: '/api/auth/logout',
-  REFRESH_TOKEN: '/api/auth/refresh',
-};
+// src/utils/constants.js
+export const API_BASE_URL = 'http://localhost:8000';
 
-// User Roles
 export const USER_ROLES = {
   HR: 'hr',
   EMPLOYEE: 'employee',
-  ADMIN: 'admin',
-  MANAGER: 'manager'
+  ADMIN: 'admin'
 };
 
-// Document Types
-export const DOCUMENT_TYPES = {
-  PASSPORT: 'passport',
-  DRIVER_LICENSE: 'driver_license',
-  RESUME: 'resume',
-  DEGREE: 'degree',
-  CONTRACT: 'contract',
-  OTHER: 'other'
-};
-
-// Task Status
 export const TASK_STATUS = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in_progress',
-  COMPLETED: 'completed',
-  OVERDUE: 'overdue'
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  OVERDUE: 'Overdue'
 };
 
-// Training Categories
-export const TRAINING_CATEGORIES = {
-  REQUIRED: 'required',
-  ROLE_SPECIFIC: 'role_specific',
-  OPTIONAL: 'optional',
-  TOOLS: 'tools'
+export const DOCUMENT_STATUS = {
+  PENDING: 'Pending',
+  VERIFIED: 'Verified',
+  REJECTED: 'Rejected'
 };
 
-// Mock Data for Development
-export const MOCK_DATA = {
-  EMPLOYEES: [
-    { id: 1, name: 'John Doe', email: 'john@company.com', role: 'Developer', status: 'active' },
-    { id: 2, name: 'Jane Smith', email: 'jane@company.com', role: 'Designer', status: 'onboarding' },
-  ],
-  TASKS: [
-    { id: 1, title: 'Complete tax forms', completed: true },
-    { id: 2, title: 'Setup work email', completed: false },
-  ]
+export const TRAINING_STATUS = {
+  NOT_STARTED: 'Not Started',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed'
+};
+
+export const COLORS = {
+  primary: '#3B82F6',
+  secondary: '#8B5CF6',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#06B6D4'
+};
+
+export const BRIGHT_COLORS = {
+  blue: '#3B82F6',
+  purple: '#8B5CF6',
+  pink: '#EC4899',
+  cyan: '#06B6D4',
+  green: '#10B981',
+  yellow: '#F59E0B',
+  orange: '#F97316',
+  red: '#EF4444'
 };
