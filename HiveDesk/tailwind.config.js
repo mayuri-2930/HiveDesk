@@ -1,8 +1,8 @@
-/** @type {import('tailwindcss').Config} */
-export default {
+// tailwind.config.js
+module.exports = {
+  darkMode: 'class',
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
@@ -13,27 +13,34 @@ export default {
           200: '#bfdbfe',
           300: '#93c5fd',
           400: '#60a5fa',
-          500: '#3b82f6',
+          500: '#195de6', // Your primary color
           600: '#2563eb',
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
-        }
-      },
-      animation: {
-        'fade-in': 'fadeIn 0.5s ease-in',
-        'slide-in': 'slideIn 0.3s ease-out',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' }
         },
-        slideIn: {
-          '0%': { transform: 'translateY(-10px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' }
-        }
-      }
+        background: {
+          light: '#f6f6f8',
+          dark: '#111621',
+        },
+        surface: {
+          light: '#ffffff',
+          dark: '#1a2235',
+        },
+        border: {
+          light: '#e5e7eb',
+          dark: '#2d3748',
+        },
+      },
+      fontFamily: {
+        'display': ['Inter', 'sans-serif']
+      },
+      borderRadius: {
+        'DEFAULT': '0.25rem',
+        'lg': '0.5rem',
+        'xl': '0.75rem',
+        'full': '9999px',
+      },
     },
   },
   plugins: [],
