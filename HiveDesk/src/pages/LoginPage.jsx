@@ -1,469 +1,296 @@
-// src/services/api.js
-import axios from 'axios';
-import toast from 'react-hot-toast';
+// src/pages/LoginPage.jsx
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  FaUser, 
+  FaEye, 
+  FaEyeSlash, 
+  FaRocket, 
+  FaBuilding, 
+  FaGoogle 
+} from 'react-icons/fa';
+import { toast } from 'react-hot-toast';
+import { authAPI } from '../services/api';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const LoginPage = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-// Create axios instance
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
 
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear auth data and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-      toast.error('Session expired. Please login again.');
-    }
-    return Promise.reject(error);
-  }
-);
-
-// Authentication API
-export const authAPI = {
-  // Login with email and password
-  login: async (email, password) => {
     try {
-      const formData = new FormData();
-      formData.append('username', email);
-      formData.append('password', password);
-
-      const response = await api.post('/auth/login', formData);
+      const response = await authAPI.login(formData.email, formData.password);
       
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Login API error:', error.response?.data || error.message);
-      
-      let errorMessage = 'Login failed. Please check your credentials.';
-      if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      }
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-  },
-
-  // Get current user info
-  getCurrentUser: async () => {
-    try {
-      const response = await api.get('/auth/me');
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get current user error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to fetch user info'
-      };
-    }
-  },
-
-  // Verify token
-  verifyToken: async () => {
-    try {
-      const response = await api.get('/auth/verify');
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Verify token error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Token verification failed'
-      };
-    }
-  },
-
-  // Register new user
-  register: async (userData) => {
-    try {
-      const response = await api.post('/auth/register', userData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Registration API error:', error.response?.data || error.message);
-      
-      let errorMessage = 'Registration failed';
-      if (error.response?.data?.detail) {
-        if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail[0]?.msg || errorMessage;
+      if (response.success) {
+        // Save token and user data
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        toast.success('Login successful!');
+        
+        // Navigate based on user role
+        if (response.data.user.role === 'hr') {
+          navigate('/hr-dashboard');
         } else {
-          errorMessage = error.response.data.detail;
+          navigate('/employee-dashboard');
         }
+      } else {
+        toast.error(response.error);
       }
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
-  }
-};
-
-// Dashboard API
-export const dashboardAPI = {
-  // Get Dashboard for HR or Employee
-  getDashboard: async () => {
-    try {
-      const response = await api.get('/dashboard/');
-      return {
-        success: true,
-        data: response.data
-      };
     } catch (error) {
-      console.error('Dashboard API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to fetch dashboard'
-      };
-    }
-  }
-};
-
-// Employee Management API (CONFIRMED ENDPOINTS)
-export const employeeAPI = {
-  // Get All Employees with pagination
-  getEmployees: async (page = 1, pageSize = 10) => {
-    try {
-      const response = await api.get('/employees/', {
-        params: {
-          page,
-          page_size: pageSize
-        }
-      });
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get employees API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to fetch employees'
-      };
-    }
-  },
-
-  // Get Employee Details
-  getEmployee: async (employeeId) => {
-    try {
-      const response = await api.get(`/employees/${employeeId}`);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get employee API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to fetch employee details'
-      };
-    }
-  },
-
-  // Update Employee (CONFIRMED)
-  updateEmployee: async (employeeId, employeeData) => {
-    try {
-      const response = await api.put(`/employees/${employeeId}`, employeeData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Update employee API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to update employee'
-      };
-    }
-  },
-
-  // Delete Employee (NEEDS CHECK)
-  deleteEmployee: async (employeeId) => {
-    try {
-      const response = await api.delete(`/employees/${employeeId}`);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Delete employee API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to delete employee'
-      };
-    }
-  },
-
-  // Add Employee (NEEDS CHECK)
-  addEmployee: async (employeeData) => {
-    try {
-      const response = await api.post('/employees/', employeeData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Add employee API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to add employee'
-      };
-    }
-  }
-};
-
-// Task Management API (NEEDS CHECK - might not exist)
-export const taskAPI = {
-  // Get Tasks
-  getTasks: async () => {
-    try {
-      const response = await api.get('/tasks/');
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get tasks API error:', error);
-      // Return empty data instead of error for non-existent endpoints
-      return {
-        success: true,
-        data: { tasks: [] }
-      };
-    }
-  },
-
-  // Create Task
-  createTask: async (taskData) => {
-    try {
-      const response = await api.post('/tasks/', taskData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Create task API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to create task'
-      };
-    }
-  },
-
-  // Update Task
-  updateTask: async (taskId, taskData) => {
-    try {
-      const response = await api.put(`/tasks/${taskId}`, taskData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Update task API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to update task'
-      };
-    }
-  },
-
-  // Delete Task
-  deleteTask: async (taskId) => {
-    try {
-      const response = await api.delete(`/tasks/${taskId}`);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Delete task API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to delete task'
-      };
-    }
-  }
-};
-
-// Document Management API (NEEDS CHECK - might not exist)
-export const documentAPI = {
-  // Get Documents
-  getDocuments: async () => {
-    try {
-      const response = await api.get('/documents/');
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get documents API error:', error);
-      // Return empty data for non-existent endpoints
-      return {
-        success: true,
-        data: { documents: [] }
-      };
-    }
-  },
-
-  // Upload Document
-  uploadDocument: async (formData) => {
-    try {
-      const response = await api.post('/documents/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Upload document API error:', error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Failed to upload document'
-      };
-    }
-  }
-};
-
-// Training API (NEEDS CHECK - might not exist)
-export const trainingAPI = {
-  // Get Training Modules
-  getTraining: async () => {
-    try {
-      const response = await api.get('/training/');
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get training API error:', error);
-      // Return empty data for non-existent endpoints
-      return {
-        success: true,
-        data: { training_modules: [] }
-      };
-    }
-  }
-};
-
-// Performance API (NEEDS CHECK - might not exist)
-export const performanceAPI = {
-  // Get Overall Performance
-  getPerformance: async () => {
-    try {
-      const response = await api.get('/performance/');
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Get performance API error:', error);
-      // Return empty data for non-existent endpoints
-      return {
-        success: true,
-        data: { performance: [] }
-      };
-    }
-  }
-};
-
-// Helper functions
-export const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleDemoLogin = (role) => {
+    setLoading(true);
+    
+    const demoCredentials = {
+      hr: { email: 'hr@company.com', password: 'password' },
+      employee: { email: 'employee@company.com', password: 'password' }
+    };
+    
+    const demo = demoCredentials[role];
+    
+    // Simulate API call
+    setTimeout(() => {
+      toast.success(`Demo ${role} login successful!`);
+      
+      // Save mock user data
+      const mockUser = {
+        id: 'demo-123',
+        name: role === 'hr' ? 'HR Manager' : 'Employee',
+        email: demo.email,
+        role: role,
+        is_active: true
+      };
+      
+      localStorage.setItem('token', 'demo-token-123');
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      
+      if (role === 'hr') {
+        navigate('/hr-dashboard');
+      } else {
+        navigate('/employee-dashboard');
+      }
+      setLoading(false);
+    }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="w-full max-w-md">
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="bg-white/20 p-4 rounded-full">
+                <FaBuilding className="text-4xl text-white" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              HR Onboarding System
+            </h1>
+            <p className="text-blue-100">
+              Login to your account
+            </p>
+          </div>
+
+          {/* Form */}
+          <div className="p-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pl-10"
+                    placeholder="you@company.com"
+                    required
+                    disabled={loading}
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaUser className="h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pl-10 pr-12"
+                    placeholder="••••••••"
+                    required
+                    disabled={loading}
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    disabled={loading}
+                  >
+                    {showPassword ? (
+                      <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    ) : (
+                      <FaEye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="rememberMe"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    disabled={loading}
+                  />
+                  <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                    Remember me
+                  </label>
+                </div>
+                <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-500" disabled={loading}>
+                  Forgot password?
+                </button>
+              </div>
+
+              {/* Login Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-3 px-4 rounded-lg font-medium text-white transition-all duration-300 ${
+                  loading
+                    ? 'bg-blue-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 shadow-md hover:shadow-lg'
+                }`}
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <FaRocket />
+                    Sign In
+                  </div>
+                )}
+              </button>
+
+              {/* Signup Link */}
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Don't have an account?{' '}
+                  <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+                    Sign up
+                  </Link>
+                </p>
+              </div>
+            </form>
+
+            {/* Divider */}
+            <div className="mt-8 mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-gray-500">Quick Access</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Demo Login Buttons */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('hr')}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium"
+              >
+                <FaBuilding />
+                Demo HR Login
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('employee')}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all duration-200 font-medium"
+              >
+                👤 Demo Employee Login
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => toast.info('Google authentication will be available soon')}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700"
+                disabled={loading}
+              >
+                <FaGoogle className="text-red-500" />
+                Sign in with Google
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Note */}
+        <div className="mt-6 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-md">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-600 font-bold">ℹ️</span>
+              </div>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold">Note:</span> For real login, use your registered company credentials.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Get user info from localStorage
-export const getUserInfo = () => {
-  const user = localStorage.getItem('user');
-  return user ? JSON.parse(user) : null;
-};
-
-// Save user info to localStorage
-export const saveUserInfo = (userData) => {
-  localStorage.setItem('user', JSON.stringify(userData));
-};
-
-// Get token from localStorage
-export const getToken = () => {
-  return localStorage.getItem('token');
-};
-
-// Save token to localStorage
-export const saveToken = (token) => {
-  localStorage.setItem('token', token);
-};
-
-// Clear all auth data
-export const clearAuthData = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-};
-
-// Test function to check which endpoints exist
-export const testAPIEndpoints = async () => {
-  const endpoints = [
-    { name: 'Dashboard', path: '/dashboard/', method: 'GET' },
-    { name: 'Employees', path: '/employees/', method: 'GET' },
-    { name: 'Tasks', path: '/tasks/', method: 'GET' },
-    { name: 'Documents', path: '/documents/', method: 'GET' },
-    { name: 'Training', path: '/training/', method: 'GET' },
-    { name: 'Performance', path: '/performance/', method: 'GET' }
-  ];
-
-  console.log('🔍 Testing API Endpoints...');
-  
-  for (const endpoint of endpoints) {
-    try {
-      const response = await api.get(endpoint.path);
-      console.log(`✅ ${endpoint.name}: ${endpoint.method} ${endpoint.path} - Status: ${response.status}`);
-    } catch (error) {
-      const status = error.response?.status;
-      const detail = error.response?.data?.detail || error.message;
-      console.log(`❌ ${endpoint.name}: ${endpoint.method} ${endpoint.path} - Status: ${status || 'No response'} - ${detail}`);
-    }
-  }
-  
-  console.log('🔍 API Endpoint Testing Complete');
-};
-
-export default api;
+export default LoginPage;
