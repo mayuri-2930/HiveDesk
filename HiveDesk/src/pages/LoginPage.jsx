@@ -77,6 +77,17 @@ const LoginPage = () => {
     }, 1000);
   };
 
+  const handleSignUpRedirect = () => {
+    toast.loading('Redirecting to sign up...')
+    setTimeout(() => {
+      // Here you would typically navigate to signup page
+      // For demo, we'll just toggle to signup form
+      setIsSignUp(true)
+      toast.dismiss()
+      toast.success('Ready to create your account!')
+    }, 1000)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="w-full max-w-md">
@@ -271,7 +282,7 @@ const LoginPage = () => {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
