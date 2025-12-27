@@ -1,79 +1,136 @@
-import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import toast from 'react-hot-toast'
-import { FaGoogle, FaEye, FaEyeSlash, FaBuilding, FaUser, FaRocket } from 'react-icons/fa'
-import { authAPI } from '../services/api'
+// src/pages/LoginPage.js
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { FaGoogle, FaEye, FaEyeSlash, FaBuilding, FaRocket } from 'react-icons/fa';
+import { authAPI, saveAuthData } from '../services/api';
 
 const LoginPage = () => {
-  const navigate = useNavigate()
-  const { login } = useAuth()
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    })
-  }
+    });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     
-    // Validation
+    // Basic validation
     if (!formData.email || !formData.password) {
-      toast.error('Please fill in all fields')
-      return
+      toast.error('Please fill in all fields');
+      return;
     }
     
-    setLoading(true)
+    if (!formData.email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    setLoading(true);
 
     try {
-      // API call for authentication
-      const response = await login(formData.email, formData.password)
+      // Call API login
+      const response = await authAPI.login(formData.email, formData.password);
       
       if (response.success) {
-        const { access_token, token_type } = response.data
+        const data = response.data;
         
-        // Extract user info from email or response data
+        // Extract token - adjust based on your API response structure
+        const token = data.access_token || data.token;
+        
+        if (!token) {
+          toast.error('No authentication token received');
+          setLoading(false);
+          return;
+        }
+        
+        // Create user data
         const userData = {
           email: formData.email,
           name: formData.email.split('@')[0],
-          // Try to get role from response, otherwise determine from email
-          role: response.data.role || (formData.email.includes('hr') ? 'hr' : 'employee'),
-          token: access_token,
-          tokenType: token_type
-        }
+          // Determine role from email or response
+          role: data.role || (formData.email.includes('hr') ? 'hr' : 'employee')
+        };
         
-        // Store token and user data
-        localStorage.setItem('token', access_token)
-        localStorage.setItem('user', JSON.stringify(userData))
+        // Save to localStorage
+        saveAuthData(token, userData);
         
-        // Call login from AuthContext
-        login(userData)
-        toast.success(`Welcome back, ${userData.name}! 🎉`)
+        toast.success(`Welcome back, ${userData.name}! 🎉`);
         
-        // Navigate based on role
+        // Navigate based on role - SIMPLE DIRECT NAVIGATION
         if (userData.role === 'hr') {
-          navigate('/hr-dashboard')
+          navigate('/hr-dashboard');
         } else {
-          navigate('/employee-dashboard')
+          navigate('/employee-dashboard');
         }
       } else {
-        toast.error(response.error || 'Login failed! Please check your credentials.')
+        toast.error(response.error || 'Login failed!');
+        
+        // For demo purposes - navigate directly if API fails
+        if (formData.email === 'hr@company.com' && formData.password === 'password') {
+          const userData = {
+            email: formData.email,
+            name: 'HR User',
+            role: 'hr'
+          };
+          saveAuthData('demo-token-hr', userData);
+          navigate('/hr-dashboard');
+        } else if (formData.email === 'employee@company.com' && formData.password === 'password') {
+          const userData = {
+            email: formData.email,
+            name: 'Employee User',
+            role: 'employee'
+          };
+          saveAuthData('demo-token-employee', userData);
+          navigate('/employee-dashboard');
+        }
       }
     } catch (error) {
-      console.error('Login error:', error)
-      toast.error('Login failed! Please check your credentials.')
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  // Demo login function
+  const handleDemoLogin = (role) => {
+    setLoading(true);
+    
+    const demoCredentials = {
+      hr: { email: 'hr@company.com', password: 'password', name: 'HR Manager' },
+      employee: { email: 'employee@company.com', password: 'password', name: 'John Employee' }
+    };
+    
+    const demo = demoCredentials[role];
+    
+    // Simulate API call
+    setTimeout(() => {
+      const userData = {
+        email: demo.email,
+        name: demo.name,
+        role: role
+      };
+      
+      saveAuthData(`demo-token-${role}`, userData);
+      toast.success(`Welcome, ${demo.name}! (Demo Mode)`);
+      
+      if (role === 'hr') {
+        navigate('/hr-dashboard');
+      } else {
+        navigate('/employee-dashboard');
+      }
+    }, 1000);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -91,7 +148,7 @@ const LoginPage = () => {
               HR Onboarding System
             </h1>
             <p className="text-blue-100">
-              Intelligent onboarding for modern workplaces
+              Login to your dashboard
             </p>
           </div>
 
@@ -112,6 +169,7 @@ const LoginPage = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pl-10"
                     placeholder="you@company.com"
                     required
+                    disabled={loading}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,6 +193,7 @@ const LoginPage = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all pl-10 pr-12"
                     placeholder="••••••••"
                     required
+                    disabled={loading}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,6 +204,7 @@ const LoginPage = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    disabled={loading}
                   >
                     {showPassword ? (
                       <FaEyeSlash className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -153,23 +213,6 @@ const LoginPage = () => {
                     )}
                   </button>
                 </div>
-              </div>
-
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="rememberMe"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
-                    Remember me
-                  </label>
-                </div>
-                <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-500">
-                  Forgot password?
-                </button>
               </div>
 
               {/* Login Button */}
@@ -184,7 +227,7 @@ const LoginPage = () => {
               >
                 {loading ? (
                   <div className="flex items-center justify-center">
-                    <div className="spinner mr-3"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                     Signing in...
                   </div>
                 ) : (
@@ -200,7 +243,7 @@ const LoginPage = () => {
                 <p className="text-sm text-gray-600">
                   Don't have an account?{' '}
                   <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                    Sign up
+                    Request Access
                   </Link>
                 </p>
               </div>
@@ -213,20 +256,42 @@ const LoginPage = () => {
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">Or continue with</span>
+                  <span className="px-4 bg-white text-gray-500">Quick Access</span>
                 </div>
               </div>
             </div>
 
-            {/* Google Sign In */}
-            <button
-              type="button"
-              onClick={() => toast.info('Google authentication will be available soon')}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700"
-            >
-              <FaGoogle className="text-red-500" />
-              Sign in with Google
-            </button>
+            {/* Demo Login Buttons */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('hr')}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-medium"
+              >
+                <FaBuilding />
+                Demo HR Login
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('employee')}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all duration-200 font-medium"
+              >
+                👤 Demo Employee Login
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => toast.info('Google authentication will be available soon')}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium text-gray-700"
+                disabled={loading}
+              >
+                <FaGoogle className="text-red-500" />
+                Sign in with Google
+              </button>
+            </div>
           </div>
         </div>
 
@@ -240,15 +305,15 @@ const LoginPage = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-700">
-                <span className="font-semibold">Note:</span> Use your registered credentials to login.
-                Contact your administrator if you need access.
+                <span className="font-semibold">Note:</span> Use demo buttons for quick access.
+                For real login, use your company credentials.
               </p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default LoginPage
+export default LoginPage;
