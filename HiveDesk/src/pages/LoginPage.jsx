@@ -1,12 +1,13 @@
-// src/pages/LoginPage.js
+// src/pages/LoginPage.jsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { FaGoogle, FaEye, FaEyeSlash, FaBuilding, FaRocket } from 'react-icons/fa';
-import { authAPI, saveAuthData } from '../services/api';
+import { FaGoogle, FaEye, FaEyeSlash, FaBuilding, FaUser, FaRocket } from 'react-icons/fa';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -24,75 +25,26 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Basic validation
+    // Validation
     if (!formData.email || !formData.password) {
       toast.error('Please fill in all fields');
-      return;
-    }
-    
-    if (!formData.email.includes('@')) {
-      toast.error('Please enter a valid email address');
       return;
     }
     
     setLoading(true);
 
     try {
-      // Call API login
-      const response = await authAPI.login(formData.email, formData.password);
+      const result = await login(formData.email, formData.password);
       
-      if (response.success) {
-        const data = response.data;
-        
-        // Extract token - adjust based on your API response structure
-        const token = data.access_token || data.token;
-        
-        if (!token) {
-          toast.error('No authentication token received');
-          setLoading(false);
-          return;
-        }
-        
-        // Create user data
-        const userData = {
-          email: formData.email,
-          name: formData.email.split('@')[0],
-          // Determine role from email or response
-          role: data.role || (formData.email.includes('hr') ? 'hr' : 'employee')
-        };
-        
-        // Save to localStorage
-        saveAuthData(token, userData);
-        
-        toast.success(`Welcome back, ${userData.name}! 🎉`);
-        
-        // Navigate based on role - SIMPLE DIRECT NAVIGATION
-        if (userData.role === 'hr') {
-          navigate('/hr-dashboard');
-        } else {
-          navigate('/employee-dashboard');
-        }
-      } else {
-        toast.error(response.error || 'Login failed!');
-        
-        // For demo purposes - navigate directly if API fails
-        if (formData.email === 'hr@company.com' && formData.password === 'password') {
-          const userData = {
-            email: formData.email,
-            name: 'HR User',
-            role: 'hr'
-          };
-          saveAuthData('demo-token-hr', userData);
-          navigate('/hr-dashboard');
-        } else if (formData.email === 'employee@company.com' && formData.password === 'password') {
-          const userData = {
-            email: formData.email,
-            name: 'Employee User',
-            role: 'employee'
-          };
-          saveAuthData('demo-token-employee', userData);
-          navigate('/employee-dashboard');
-        }
+      if (result.success) {
+        // Navigate based on user role
+        setTimeout(() => {
+          if (result.user.role === 'hr') {
+            navigate('/hr-dashboard');
+          } else {
+            navigate('/employee-dashboard');
+          }
+        }, 500);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -102,33 +54,26 @@ const LoginPage = () => {
     }
   };
 
-  // Demo login function
   const handleDemoLogin = (role) => {
     setLoading(true);
     
     const demoCredentials = {
-      hr: { email: 'hr@company.com', password: 'password', name: 'HR Manager' },
-      employee: { email: 'employee@company.com', password: 'password', name: 'John Employee' }
+      hr: { email: 'hr@company.com', password: 'password' },
+      employee: { email: 'employee@company.com', password: 'password' }
     };
     
     const demo = demoCredentials[role];
     
     // Simulate API call
     setTimeout(() => {
-      const userData = {
-        email: demo.email,
-        name: demo.name,
-        role: role
-      };
-      
-      saveAuthData(`demo-token-${role}`, userData);
-      toast.success(`Welcome, ${demo.name}! (Demo Mode)`);
+      toast.success(`Demo ${role} login successful!`);
       
       if (role === 'hr') {
         navigate('/hr-dashboard');
       } else {
         navigate('/employee-dashboard');
       }
+      setLoading(false);
     }, 1000);
   };
 
@@ -148,7 +93,7 @@ const LoginPage = () => {
               HR Onboarding System
             </h1>
             <p className="text-blue-100">
-              Login to your dashboard
+              Login to your account
             </p>
           </div>
 
@@ -172,9 +117,7 @@ const LoginPage = () => {
                     disabled={loading}
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+                    <FaUser className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>
@@ -215,6 +158,24 @@ const LoginPage = () => {
                 </div>
               </div>
 
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="rememberMe"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    disabled={loading}
+                  />
+                  <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                    Remember me
+                  </label>
+                </div>
+                <button type="button" className="text-sm font-medium text-blue-600 hover:text-blue-500" disabled={loading}>
+                  Forgot password?
+                </button>
+              </div>
+
               {/* Login Button */}
               <button
                 type="submit"
@@ -243,7 +204,7 @@ const LoginPage = () => {
                 <p className="text-sm text-gray-600">
                   Don't have an account?{' '}
                   <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                    Request Access
+                    Sign up
                   </Link>
                 </p>
               </div>
@@ -305,8 +266,7 @@ const LoginPage = () => {
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-700">
-                <span className="font-semibold">Note:</span> Use demo buttons for quick access.
-                For real login, use your company credentials.
+                <span className="font-semibold">Note:</span> For real login, use your registered company credentials.
               </p>
             </div>
           </div>

@@ -1,32 +1,35 @@
-import React from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+// src/components/ProtectedRoute.jsx
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
-const ProtectedRoute = ({ children, role }) => {
-  const { user, loading } = useAuth()
+const ProtectedRoute = () => {
+  const { isAuthenticated, user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-lg font-semibold text-blue-600">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
-    )
+    );
   }
 
-  if (!user) {
-    return <Navigate to="/login" />
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
-  if (role && user.role !== role) {
-    // Redirect to appropriate dashboard based on role
-    const redirectPath = user.role === 'hr' ? '/hr-dashboard' : '/employee-dashboard'
-    return <Navigate to={redirectPath} />
+  // Check if user has access to the requested route
+  const currentPath = window.location.pathname;
+  
+  if (currentPath.startsWith('/hr-dashboard') && user?.role !== 'hr') {
+    return <Navigate to="/employee-dashboard" replace />;
   }
 
-  return children
-}
+  if (currentPath.startsWith('/employee-dashboard') && user?.role === 'hr') {
+    return <Navigate to="/hr-dashboard" replace />;
+  }
 
-export default ProtectedRoute
+  return <Outlet />;
+};
+
+export default ProtectedRoute;

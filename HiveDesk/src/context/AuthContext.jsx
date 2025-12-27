@@ -1,75 +1,119 @@
-// src/context/AuthContext.js
-import { createContext, useContext, useState, useEffect } from 'react'
+// src/context/AuthContext.jsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authAPI } from '../services/api';
+import toast from 'react-hot-toast';
 
-const AuthContext = createContext()
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    // Initialize from localStorage on first load
-    const storedUser = localStorage.getItem('user')
-    try {
-      return storedUser ? JSON.parse(storedUser) : null
-    } catch (error) {
-      console.error('Error parsing stored user:', error)
-      localStorage.removeItem('user')
-      localStorage.removeItem('token')
-      return null
-    }
-  })
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
 
-  const [loading, setLoading] = useState(true)
-
-  // Check if token is valid on mount
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('token')
-      if (token) {
-        // Validate token or refresh if needed
-        // You can add token validation logic here
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    
+    if (storedUser && storedToken) {
+      try {
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken);
+      } catch (error) {
+        console.error('Error parsing stored auth data:', error);
+        clearAuth();
       }
-      setLoading(false)
     }
-    checkAuth()
-  }, [])
+    setLoading(false);
+  }, []);
 
-  const login = (userData) => {
-    setUser(userData)
-  }
+  const login = async (email, password) => {
+    try {
+      const response = await authAPI.login(email, password);
+      
+      if (response.success) {
+        const { access_token, user: userData } = response.data;
+        
+        // Set auth state
+        setUser(userData);
+        setToken(access_token);
+        
+        // Store in localStorage
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', access_token);
+        
+        toast.success(`Welcome back, ${userData.name}!`);
+        return { success: true, user: userData };
+      } else {
+        toast.error(response.error || 'Login failed');
+        return { success: false, error: response.error };
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const signup = async (userData) => {
+    try {
+      const response = await authAPI.register(userData);
+      
+      if (response.success) {
+        toast.success('Registration successful! Please login.');
+        return { success: true };
+      } else {
+        toast.error(response.error || 'Registration failed');
+        return { success: false, error: response.error };
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast.error('Registration failed. Please try again.');
+      return { success: false, error: 'Network error' };
+    }
+  };
 
   const logout = () => {
-    setUser(null)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    // Navigate to login page
-    window.location.href = '/login'
-  }
+    clearAuth();
+    toast.success('Logged out successfully!');
+  };
+
+  const clearAuth = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+  };
 
   const updateUser = (updatedData) => {
-    setUser(prev => {
-      const newUser = { ...prev, ...updatedData }
-      localStorage.setItem('user', JSON.stringify(newUser))
-      return newUser
-    })
-  }
+    const newUser = { ...user, ...updatedData };
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
+  };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      logout, 
-      updateUser,
-      isAuthenticated: !!user,
-      loading 
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        signup,
+        logout,
+        clearAuth,
+        updateUser,
+        isAuthenticated: !!user && !!token,
+      }}
+    >
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context
-}
+  return context;
+};
