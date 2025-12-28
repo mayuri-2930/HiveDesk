@@ -17,7 +17,11 @@ import {
   FaPlus,
   FaTimes,
   FaInfoCircle,
-  FaEdit
+  FaEdit,
+  FaChevronDown,
+  FaChevronUp,
+  FaCopy,
+  FaExternalLinkAlt
 } from 'react-icons/fa'
 import toast from 'react-hot-toast'
 import { documentAPI } from '../../services/api' // Adjust path as needed
@@ -32,7 +36,13 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
   const [newDocumentName, setNewDocumentName] = useState('')
   const [activeTab, setActiveTab] = useState('all') // 'all', 'analysis'
   const [selectedAnalysis, setSelectedAnalysis] = useState(null)
+  const [showCustomUploadModal, setShowCustomUploadModal] = useState(false)
+  const [customFile, setCustomFile] = useState(null)
+  const [customDocumentType, setCustomDocumentType] = useState('')
+  const [apiResponse, setApiResponse] = useState(null)
+  const [showApiResponse, setShowApiResponse] = useState(false)
   const fileInputRef = useRef(null)
+  const customFileInputRef = useRef(null)
 
   // Sync with parent component documents
   useEffect(() => {
@@ -90,9 +100,7 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
       date: null,
       fileName: null,
       fileSize: null,
-      // Add document_type for API
       document_type: 'custom_document',
-      // Store the custom name separately
       custom_name: newDocumentName
     }
 
@@ -100,12 +108,85 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
     setNewDocumentName('')
     setShowAddDocumentForm(false)
     
-    // Call parent callback if provided
     if (onAddDocument) {
       onAddDocument(newDoc)
     }
     
     toast.success(`Added "${newDocumentName}" to required documents`)
+  }
+
+  // Handle Custom Document Upload via Modal
+  const handleCustomDocumentUpload = async () => {
+    if (!customFile) {
+      toast.error('Please select a file')
+      return
+    }
+
+    if (!customDocumentType.trim()) {
+      toast.error('Please enter a document type')
+      return
+    }
+
+    setUploading(true)
+    
+    try {
+      const metadata = {
+        document_type: customDocumentType,
+        custom_name: customDocumentType
+      }
+      
+      // Call the API to upload document
+      const result = await documentAPI.uploadDocument(customFile, metadata)
+      
+      if (result.success) {
+        toast.success('Document uploaded successfully!')
+        
+        // Store API response
+        setApiResponse(result.data)
+        setShowApiResponse(true)
+        
+        // Add to documents list
+        const newDoc = {
+          id: `custom-${Date.now()}`,
+          name: customDocumentType,
+          status: 'pending',
+          category: 'custom',
+          isCustom: true,
+          date: new Date().toISOString().split('T')[0],
+          fileName: customFile.name,
+          fileSize: (customFile.size / 1024 / 1024).toFixed(2) + ' MB',
+          document_id: result.data.document_id,
+          uploadedAt: new Date().toISOString(),
+          api_document_type: customDocumentType,
+          document_type: customDocumentType
+        }
+        
+        setDocuments(prev => [...prev, newDoc])
+        
+        // Call parent callback if provided
+        if (onUpload) {
+          onUpload(customFile, newDoc.id, newDoc)
+        }
+        
+        // Trigger AI analysis
+        if (result.data.document_id) {
+          triggerAIAnalysis(result.data.document_id, newDoc.id, metadata)
+        }
+        
+        // Reset modal
+        setCustomFile(null)
+        setCustomDocumentType('')
+        setShowCustomUploadModal(false)
+        
+      } else {
+        toast.error(result.error || 'Upload failed')
+      }
+    } catch (error) {
+      console.error('Upload failed:', error)
+      toast.error('Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleFileUpload = async (event) => {
@@ -133,19 +214,20 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
     setUploading(true)
     
     try {
-      // Prepare metadata for the API
       const metadata = {
         document_type: selectedDoc.isCustom ? 'custom_document' : selectedDoc.document_type || 'general',
-        custom_name: selectedDoc.isCustom ? selectedDoc.name : null
+       
       }
       
-      // Call the API to upload document
       const result = await documentAPI.uploadDocument(file, metadata)
       
       if (result.success) {
         toast.success('Document uploaded successfully!')
         
-        // Update local document state
+        // Store API response
+        setApiResponse(result.data)
+        setShowApiResponse(true)
+        
         const updatedDoc = {
           ...selectedDoc,
           status: 'pending',
@@ -154,7 +236,6 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
           fileSize: (file.size / 1024 / 1024).toFixed(2) + ' MB',
           document_id: result.data.document_id,
           uploadedAt: new Date().toISOString(),
-          // Store the actual document_type used in upload
           api_document_type: selectedDoc.isCustom ? 'custom_document' : selectedDoc.document_type
         }
         
@@ -162,12 +243,10 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
           doc.id === selectedDoc.id ? updatedDoc : doc
         ))
         
-        // Call parent callback if provided
         if (onUpload) {
           onUpload(file, selectedDoc.id, updatedDoc)
         }
         
-        // Trigger AI analysis
         if (result.data.document_id) {
           triggerAIAnalysis(result.data.document_id, selectedDoc.id, metadata)
         }
@@ -181,7 +260,6 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
       toast.error('Upload failed. Please try again.')
     } finally {
       setUploading(false)
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -192,7 +270,6 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
     setAnalyzing(prev => ({ ...prev, [docId]: true }))
     
     try {
-      // Pass metadata to the analysis API if needed
       const result = await documentAPI.getAIAnalysis(documentId, metadata)
       
       if (result.success) {
@@ -201,19 +278,17 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
           documentId,
           analyzedAt: new Date().toISOString(),
           docId,
-          metadata: metadata // Include metadata in analysis data
+          metadata: metadata
         }
         
         setAiAnalysis(prev => ({ ...prev, [docId]: analysisData }))
         
-        // Show in analysis tab if analysis is selected
         if (activeTab === 'analysis') {
           setSelectedAnalysis(analysisData)
         }
         
         toast.success('AI analysis completed!')
         
-        // Update document with analysis results if verification passed
         if (result.data.verification_status === 'verified') {
           setTimeout(() => {
             setDocuments(prev => prev.map(doc => 
@@ -249,15 +324,12 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
 
     const docToDelete = documents.find(d => d.id === docId)
     
-    // Call parent callback if provided
     if (onDelete) {
       onDelete(docId)
     }
     
-    // Update local state
     setDocuments(prev => prev.filter(doc => doc.id !== docId))
     
-    // Remove from AI analysis
     setAiAnalysis(prev => {
       const newAnalysis = { ...prev }
       delete newAnalysis[docId]
@@ -388,6 +460,196 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
     )
   }
 
+  // Render API Response Section
+  const renderApiResponse = () => {
+    if (!apiResponse) return null
+    
+    return (
+      <div className="mt-8">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/20">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">API Response</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowApiResponse(!showApiResponse)}
+                  className="flex items-center gap-2 px-3 py-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                >
+                  {showApiResponse ? <FaChevronUp className="w-4 h-4" /> : <FaChevronDown className="w-4 h-4" />}
+                  {showApiResponse ? 'Hide' : 'Show'} Response
+                </button>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(JSON.stringify(apiResponse, null, 2))
+                    toast.success('Response copied to clipboard!')
+                  }}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Copy to clipboard"
+                >
+                  <FaCopy className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Document uploaded successfully! Response received from API
+            </div>
+          </div>
+          
+          {showApiResponse && (
+            <div className="p-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Summary */}
+                <div className="lg:col-span-1 space-y-4">
+                  <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Response Summary</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Document ID</p>
+                        <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
+                          {apiResponse.document_id}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Document Type</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {apiResponse.document_type}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Confidence Score</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                            <div 
+                              className="bg-green-500 dark:bg-green-400 h-2 rounded-full"
+                              style={{ width: `${(apiResponse.confidence_score || 0) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {(apiResponse.confidence_score * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                      {apiResponse.ai_analysis?.verification_status && (
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Verification Status</p>
+                          <p className={`font-medium ${
+                            apiResponse.ai_analysis.verification_status === 'VERIFIED' 
+                              ? 'text-green-600 dark:text-green-400' 
+                              : 'text-yellow-600 dark:text-yellow-400'
+                          }`}>
+                            {apiResponse.ai_analysis.verification_status}
+                          </p>
+                        </div>
+                      )}
+                      {apiResponse.processed_at && (
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Processed At</p>
+                          <p className="text-sm text-gray-900 dark:text-white">
+                            {new Date(apiResponse.processed_at).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Extracted Fields */}
+                  {apiResponse.ai_analysis?.extracted_fields && (
+                    <div className="bg-white dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Extracted Fields</h3>
+                      <div className="space-y-2">
+                        {Object.entries(apiResponse.ai_analysis.extracted_fields).map(([key, value]) => (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{key}:</span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white text-right">
+                              {value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Full Response */}
+                <div className="lg:col-span-2">
+                  <div className="bg-gray-900 rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-300">Raw API Response</span>
+                      <button
+                        onClick={() => {
+                          const jsonString = JSON.stringify(apiResponse, null, 2)
+                          const blob = new Blob([jsonString], { type: 'application/json' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `api-response-${apiResponse.document_id}.json`
+                          document.body.appendChild(a)
+                          a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                          toast.success('Response downloaded as JSON!')
+                        }}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                      >
+                        <FaDownload className="w-3 h-3" />
+                        Download JSON
+                      </button>
+                    </div>
+                    <pre className="p-4 text-sm text-gray-100 overflow-auto max-h-96">
+                      {JSON.stringify(apiResponse, null, 2)}
+                    </pre>
+                  </div>
+
+                  {/* Extracted Text Preview */}
+                  {apiResponse.extracted_text && (
+                    <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Extracted Text</h3>
+                      </div>
+                      <div className="p-4 max-h-48 overflow-y-auto">
+                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                          {apiResponse.extracted_text.length > 500 
+                            ? `${apiResponse.extracted_text.substring(0, 500)}...` 
+                            : apiResponse.extracted_text}
+                        </p>
+                        {apiResponse.extracted_text.length > 500 && (
+                          <button
+                            onClick={() => {
+                              const textWindow = window.open('', 'Extracted Text', 'width=800,height=600')
+                              textWindow.document.write(`
+                                <html>
+                                  <head>
+                                    <title>Extracted Text - ${apiResponse.document_type}</title>
+                                    <style>
+                                      body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+                                      pre { background: white; padding: 20px; border-radius: 5px; border: 1px solid #ddd; overflow: auto; }
+                                      h2 { color: #333; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <h2>Extracted Text from ${apiResponse.document_type}</h2>
+                                    <pre>${apiResponse.extracted_text}</pre>
+                                  </body>
+                                </html>
+                              `)
+                            }}
+                            className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            View full extracted text
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const stats = {
     total: documents.length,
     verified: documents.filter(d => d.status === 'verified').length,
@@ -401,7 +663,6 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
     required: documents.filter(d => d.status === 'required')
   }
 
-  // Get documents with AI analysis
   const documentsWithAnalysis = documents.filter(doc => aiAnalysis[doc.id])
 
   return (
@@ -464,6 +725,129 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
           </button>
         </nav>
       </div>
+
+      {/* Custom Document Upload Modal */}
+      {showCustomUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Upload Custom Document</h3>
+                <button
+                  onClick={() => {
+                    setShowCustomUploadModal(false)
+                    setCustomFile(null)
+                    setCustomDocumentType('')
+                  }}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                  <FaTimes className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* File Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Select File
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                    {customFile ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-2">
+                          {getFileIcon(customFile.name)}
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900 dark:text-white">{customFile.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {(customFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setCustomFile(null)}
+                          className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                        >
+                          Remove file
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <FaUpload className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                        <p className="text-gray-600 dark:text-gray-400 mb-2">Drag & drop or click to select</p>
+                        <button
+                          onClick={() => customFileInputRef.current?.click()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          Browse Files
+                        </button>
+                        <input
+                          ref={customFileInputRef}
+                          type="file"
+                          onChange={(e) => setCustomFile(e.target.files[0])}
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Supported formats: PDF, JPG, PNG, DOC (Max 10MB)
+                  </p>
+                </div>
+
+                {/* Document Type Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Document Type
+                  </label>
+                  <input
+                    type="text"
+                    value={customDocumentType}
+                    onChange={(e) => setCustomDocumentType(e.target.value)}
+                    placeholder="Enter document type (e.g., resume, certificate, license)"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    onKeyPress={(e) => e.key === 'Enter' && !uploading && handleCustomDocumentUpload()}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    This will be sent as document_type in the API request
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowCustomUploadModal(false)
+                  setCustomFile(null)
+                  setCustomDocumentType('')
+                }}
+                disabled={uploading}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCustomDocumentUpload}
+                disabled={!customFile || !customDocumentType.trim() || uploading}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
+              >
+                {uploading ? (
+                  <>
+                    <FaSpinner className="w-4 h-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <FaUpload className="w-4 h-4" />
+                    Upload Document
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Analysis Tab Content */}
       {activeTab === 'analysis' && (
@@ -531,12 +915,12 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
               
               {/* Add Custom Document Button */}
               <button
-                onClick={() => setShowAddDocumentForm(true)}
+                onClick={() => setShowCustomUploadModal(true)}
                 className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors text-center"
               >
                 <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
                   <FaPlus className="w-5 h-5" />
-                  <span className="font-medium">Add Custom Document</span>
+                  <span className="font-medium">Upload Custom Document</span>
                 </div>
               </button>
             </div>
@@ -566,6 +950,12 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                     <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
                       Choose a document from the list to view detailed AI analysis results including verification status, confidence scores, and extracted information.
                     </p>
+                    <button
+                      onClick={() => setShowCustomUploadModal(true)}
+                      className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Upload Your First Document
+                    </button>
                   </div>
                 )}
               </div>
@@ -597,11 +987,38 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
             </div>
           </div>
 
-          {/* Add Custom Document Form */}
+          {/* API Response Display */}
+          {renderApiResponse()}
+
+          {/* Add Custom Document Button */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Manage Documents</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Upload and manage your documents</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAddDocumentForm(true)}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <FaPlus className="w-4 h-4" />
+                Add to List
+              </button>
+              <button
+                onClick={() => setShowCustomUploadModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <FaUpload className="w-4 h-4" />
+                Upload Custom Document
+              </button>
+            </div>
+          </div>
+
+          {/* Add to List Form */}
           {showAddDocumentForm && (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-700 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Add Custom Document</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white">Add Document to Required List</h3>
                 <button
                   onClick={() => {
                     setShowAddDocumentForm(false)
@@ -617,7 +1034,7 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                   type="text"
                   value={newDocumentName}
                   onChange={(e) => setNewDocumentName(e.target.value)}
-                  placeholder="Enter document name (e.g., 'Professional Certificate', 'Award Letter')"
+                  placeholder="Enter document name to add to required list"
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                   onKeyPress={(e) => e.key === 'Enter' && handleAddDocument()}
                 />
@@ -626,14 +1043,11 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                   disabled={!newDocumentName.trim()}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
-                  Add
+                  Add to List
                 </button>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Add any document type not listed below. The AI will attempt to analyze and verify it.
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                <strong>API Note:</strong> Will be sent as document_type: 'custom_document' with custom_name: '{newDocumentName}'
+                This will add the document to your required list. You can upload it later.
               </p>
             </div>
           )}
@@ -702,19 +1116,6 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
 
           {/* Document Lists */}
           <div className="space-y-8">
-            {/* Add Custom Document Button */}
-            {!showAddDocumentForm && (
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setShowAddDocumentForm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <FaPlus className="w-4 h-4" />
-                  Add Custom Document
-                </button>
-              </div>
-            )}
-
             {/* Required Documents */}
             {documentGroups.required.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -741,12 +1142,12 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                               </span>
                               {doc.isCustom ? (
                                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                                  Custom (API: custom_document)
+                                  Custom
                                 </span>
                               ) : (
                                 doc.document_type && (
                                   <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400">
-                                    API: {doc.document_type}
+                                    {doc.document_type}
                                   </span>
                                 )
                               )}
@@ -756,11 +1157,6 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                           {doc.description || 'This document is required for verification'}
-                          {doc.isCustom && (
-                            <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
-                              Will be sent as: document_type='custom_document'
-                            </span>
-                          )}
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -774,7 +1170,7 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                             <button
                               onClick={() => handleDeleteDocument(doc.id)}
                               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                              title="Remove custom document"
+                              title="Remove from list"
                             >
                               <FaTrash className="w-4 h-4" />
                             </button>
@@ -958,10 +1354,10 @@ const EmpDocs = ({ documents: initialDocuments, onUpload, onDelete, onAddDocumen
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No documents found</h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">Add your first document to get started</p>
                 <button
-                  onClick={() => setShowAddDocumentForm(true)}
+                  onClick={() => setShowCustomUploadModal(true)}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
-                  Add Custom Document
+                  Upload Custom Document
                 </button>
               </div>
             )}
