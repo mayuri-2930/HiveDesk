@@ -1,0 +1,29 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+sqlmodel==0.0.14
+sqlalchemy[asyncio]==2.0.23
+asyncpg==0.29.0
+alembic==1.12.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# File & Form Handling
+python-multipart==0.0.6
+aiofiles==23.2.1
+
+# Configuration & Validation
+python-dotenv==1.0.0
+pydantic[email]==2.5.0
+# AI & Document Processing
+google-generativeai==0.8.3
+PyPDF2==3.0.1
+pillow==10.4.0
+pytesseract==0.3.13
+pdf2image==1.17.0
+psycopg2-binary==2.9.9

@@ -606,9 +606,9 @@ uploadDocument: async (file, metadata) => {
       // If metadata is an object (new format)
       formData.append('document_type', metadata.custom_name || 'general');
       
-      if (metadata.custom_name) {
-        formData.append('custom_name', metadata.custom_name);
-      }
+      // if (metadata.custom_name) {
+      //   formData.append('custom_name', metadata.custom_name);
+      // }
       
       if (metadata.description) {
         formData.append('description', metadata.description);
