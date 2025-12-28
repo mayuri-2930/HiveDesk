@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
-  dashboardAPI, 
-  employeeAPI, 
-  taskAPI, 
-  documentAPI 
+import {
+  dashboardAPI,
+  employeeAPI,
+  taskAPI,
+  documentAPI
 } from '../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -44,11 +44,10 @@ import { transformEmployeeData, transformTaskData, transformDocumentData } from 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-left transition-colors ${
-      active 
-        ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg w-full text-left transition-colors ${active
+        ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-    }`}
+      }`}
   >
     <Icon className="h-5 w-5" />
     <span className="text-sm font-medium">{label}</span>
@@ -58,7 +57,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
 // Task Modal Component
 const TaskModal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-lg w-full relative max-h-[90vh] overflow-y-auto">
@@ -95,7 +94,7 @@ const HRDashboard = () => {
   const [tasks, setTasks] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [activeSection, setActiveSection] = useState('overview');
-  
+
   // Modal states
   const [modalState, setModalState] = useState({
     isOpen: false,
@@ -108,7 +107,7 @@ const HRDashboard = () => {
   const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all');
-  
+
   // Form states
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -121,7 +120,7 @@ const HRDashboard = () => {
     category: '',
     assigned_to: ''
   });
-  
+
   const [assignForm, setAssignForm] = useState({
     employeeId: '',
     dueDate: ''
@@ -234,7 +233,7 @@ const HRDashboard = () => {
     try {
       setLoading(true);
       const response = await employeeAPI.getEmployee(employeeId);
-      
+
       if (response.success && response.data) {
         setModalState({
           isOpen: true,
@@ -280,13 +279,13 @@ const HRDashboard = () => {
           is_active: updatedData.is_active
         }
       };
-      
+
       const response = await employeeAPI.updateEmployee(updatedData.id, employeeData);
-      
+
       if (response.success) {
-        setEmployees(prev => prev.map(emp => 
-          emp.id === updatedData.id ? { 
-            ...emp, 
+        setEmployees(prev => prev.map(emp =>
+          emp.id === updatedData.id ? {
+            ...emp,
             name: updatedData.name,
             email: updatedData.email,
             is_active: updatedData.is_active,
@@ -313,7 +312,7 @@ const HRDashboard = () => {
     try {
       setLoading(true);
       const response = await employeeAPI.deleteEmployee(employeeId);
-      
+
       if (response.success) {
         setEmployees(prev => prev.filter(emp => emp.id !== employeeId));
         toast.success('Employee deleted successfully');
@@ -380,7 +379,7 @@ const HRDashboard = () => {
 
   const handleTaskFormSubmit = async (e) => {
     e.preventDefault();
-    
+
     const payload = {
       title: taskForm.title,
       description: taskForm.description,
@@ -460,7 +459,7 @@ const HRDashboard = () => {
   };
 
   const getPriorityColor = (priority) => {
-    switch(priority) {
+    switch (priority) {
       case 'High': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
       case 'Medium': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'Low': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
@@ -469,7 +468,7 @@ const HRDashboard = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status?.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'completed':
       case 'done':
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
@@ -497,7 +496,7 @@ const HRDashboard = () => {
   };
 
   const getInsightColor = (type) => {
-    switch(type) {
+    switch (type) {
       case 'warning': return 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30';
       case 'suggestion': return 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30';
       case 'positive': return 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30';
@@ -506,7 +505,7 @@ const HRDashboard = () => {
   };
 
   const getInsightIcon = (type) => {
-    switch(type) {
+    switch (type) {
       case 'warning': return <FaExclamationTriangle className="text-red-600 dark:text-red-400" />;
       case 'suggestion': return <FaLightbulb className="text-indigo-600 dark:text-indigo-400" />;
       case 'positive': return <FaCheckCircle className="text-emerald-600 dark:text-emerald-400" />;
@@ -519,7 +518,7 @@ const HRDashboard = () => {
     switch (activeSection) {
       case 'overview':
         return (
-          <Overview 
+          <Overview
             employees={employees}
             tasks={tasks}
             documents={documents}
@@ -583,7 +582,7 @@ const HRDashboard = () => {
         return <Settings />;
       default:
         return (
-          <Overview 
+          <Overview
             employees={employees}
             tasks={tasks}
             documents={documents}
@@ -615,53 +614,55 @@ const HRDashboard = () => {
           <div className="bg-blue-600 aspect-square rounded-lg w-8 h-8 flex items-center justify-center text-white">
             <MdDashboard className="text-xl" />
           </div>
-          <h1 className="text-gray-900 dark:text-white text-lg font-bold">HR Portal</h1>
+          <h1 className="text-gray-900 dark:text-white text-lg font-bold">Hive Desk</h1>
+          <h2 className="text-gray900/80 dark:text-white/80.text-sm.font-medium">HR Portal</h2>
+
         </div>
-        
+
         <div className="flex flex-col gap-2 p-4 overflow-y-auto">
-          <SidebarItem 
-            icon={MdDashboard} 
-            label="Overview" 
+          <SidebarItem
+            icon={MdDashboard}
+            label="Overview"
             active={activeSection === 'overview'}
             onClick={() => setActiveSection('overview')}
           />
-          <SidebarItem 
-            icon={MdGroup} 
-            label="Candidates" 
+          <SidebarItem
+            icon={MdGroup}
+            label="Candidates"
             active={activeSection === 'candidates'}
             onClick={() => setActiveSection('candidates')}
           />
-          <SidebarItem 
-            icon={MdBadge} 
-            label="Employees" 
+          <SidebarItem
+            icon={MdBadge}
+            label="Employees"
             active={activeSection === 'employees'}
             onClick={() => setActiveSection('employees')}
           />
-          <SidebarItem 
-            icon={FaTasks} 
-            label="Task Management" 
+          <SidebarItem
+            icon={FaTasks}
+            label="Task Management"
             active={activeSection === 'tasks'}
             onClick={() => setActiveSection('tasks')}
           />
-          <SidebarItem 
-            icon={MdDescription} 
-            label="Documents" 
+          <SidebarItem
+            icon={MdDescription}
+            label="Documents"
             active={activeSection === 'documents'}
             onClick={() => setActiveSection('documents')}
           />
-          
+
           <div className="pt-4 pb-2">
             <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</p>
           </div>
-          
-          <SidebarItem 
-            icon={MdSettings} 
-            label="Settings" 
+
+          <SidebarItem
+            icon={MdSettings}
+            label="Settings"
             active={activeSection === 'settings'}
             onClick={() => setActiveSection('settings')}
           />
         </div>
-        
+
         <div className="mt-auto p-4 border-t border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -686,26 +687,26 @@ const HRDashboard = () => {
               <div className="flex flex-col gap-1">
                 <h2 className="text-gray-900 dark:text-white text-3xl font-bold tracking-tight">
                   {activeSection === 'overview' ? 'Onboarding Overview' :
-                   activeSection === 'candidates' ? 'Candidates Management' :
-                   activeSection === 'employees' ? 'Employee Management' :
-                   activeSection === 'tasks' ? 'Task Management' :
-                   activeSection === 'documents' ? 'Document Management' :
-                   activeSection === 'settings' ? 'Settings' : 'HR Portal'}
+                    activeSection === 'candidates' ? 'Candidates Management' :
+                      activeSection === 'employees' ? 'Employee Management' :
+                        activeSection === 'tasks' ? 'Task Management' :
+                          activeSection === 'documents' ? 'Document Management' :
+                            activeSection === 'settings' ? 'Settings' : 'HR Portal'}
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
                   {activeSection === 'overview' ? 'Manage and track employee onboarding progress and velocity.' :
-                   activeSection === 'candidates' ? 'Manage candidate applications and hiring process.' :
-                   activeSection === 'employees' ? 'Manage employee information and activities.' :
-                   activeSection === 'tasks' ? 'Create, assign, and track tasks for employees.' :
-                   activeSection === 'documents' ? 'View and manage all uploaded documents.' :
-                   activeSection === 'settings' ? 'Configure your HR portal settings.' : 'HR Management System'}
+                    activeSection === 'candidates' ? 'Manage candidate applications and hiring process.' :
+                      activeSection === 'employees' ? 'Manage employee information and activities.' :
+                        activeSection === 'tasks' ? 'Create, assign, and track tasks for employees.' :
+                          activeSection === 'documents' ? 'View and manage all uploaded documents.' :
+                            activeSection === 'settings' ? 'Configure your HR portal settings.' : 'HR Management System'}
                 </p>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 {activeSection === 'tasks' && (
                   <>
-                    <button 
+                    <button
                       onClick={() => setShowCreateTaskModal(true)}
                       className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
                     >
@@ -714,7 +715,7 @@ const HRDashboard = () => {
                     </button>
                   </>
                 )}
-                
+
                 <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200 shadow-sm">
                   <FaCalendarAlt className="text-[18px]" />
                   <span>Last 30 Days</span>
@@ -758,31 +759,31 @@ const HRDashboard = () => {
               <input
                 type="text"
                 value={taskForm.title}
-                onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                 className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 placeholder="Enter task title"
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Description *</label>
               <textarea
                 value={taskForm.description}
-                onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
+                onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
                 className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 rows="2"
                 placeholder="Enter task description"
                 required
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Task Type *</label>
                 <select
                   value={taskForm.task_type}
-                  onChange={(e) => setTaskForm({...taskForm, task_type: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, task_type: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                   required
                 >
@@ -792,12 +793,12 @@ const HRDashboard = () => {
                   <option value="complete">Complete</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Document Type *</label>
                 <select
                   value={taskForm.required_document_type}
-                  onChange={(e) => setTaskForm({...taskForm, required_document_type: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, required_document_type: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                   required
                 >
@@ -812,46 +813,46 @@ const HRDashboard = () => {
                 </select>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Content</label>
               <textarea
                 value={taskForm.content}
-                onChange={(e) => setTaskForm({...taskForm, content: e.target.value})}
+                onChange={(e) => setTaskForm({ ...taskForm, content: e.target.value })}
                 className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 rows="2"
                 placeholder="Additional content or instructions"
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Due Date</label>
                 <input
                   type="date"
                   value={taskForm.due_date}
-                  onChange={(e) => setTaskForm({...taskForm, due_date: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Category</label>
                 <input
                   type="text"
                   value={taskForm.category}
-                  onChange={(e) => setTaskForm({...taskForm, category: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, category: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                   placeholder="e.g., Documentation, Training"
                 />
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Assign To</label>
               <select
                 value={taskForm.assigned_to}
-                onChange={(e) => setTaskForm({...taskForm, assigned_to: e.target.value})}
+                onChange={(e) => setTaskForm({ ...taskForm, assigned_to: e.target.value })}
                 className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
               >
                 <option value="">Select employee</option>
@@ -862,20 +863,20 @@ const HRDashboard = () => {
                 ))}
               </select>
             </div>
-            
+
             <div className="flex items-center gap-3 pt-2">
               <input
                 type="checkbox"
                 id="is_active"
                 checked={taskForm.is_active}
-                onChange={(e) => setTaskForm({...taskForm, is_active: e.target.checked})}
+                onChange={(e) => setTaskForm({ ...taskForm, is_active: e.target.checked })}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label htmlFor="is_active" className="text-sm text-gray-700 dark:text-gray-300">
                 Task is active
               </label>
             </div>
-            
+
             <div className="flex gap-4 pt-6">
               <button
                 type="button"
@@ -907,7 +908,7 @@ const HRDashboard = () => {
               <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Assign To *</label>
               <select
                 value={assignForm.employeeId}
-                onChange={(e) => setAssignForm({...assignForm, employeeId: e.target.value})}
+                onChange={(e) => setAssignForm({ ...assignForm, employeeId: e.target.value })}
                 className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 required
               >
@@ -924,7 +925,7 @@ const HRDashboard = () => {
               <input
                 type="date"
                 value={assignForm.dueDate}
-                onChange={(e) => setAssignForm({...assignForm, dueDate: e.target.value})}
+                onChange={(e) => setAssignForm({ ...assignForm, dueDate: e.target.value })}
                 className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                 required
               />
