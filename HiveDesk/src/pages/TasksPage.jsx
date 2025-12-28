@@ -1,75 +1,106 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { FaTasks, FaCheckCircle, FaClock, FaPlus, FaFilter, FaCalendar, FaUser } from 'react-icons/fa'
+import { taskAPI } from '../api/taskAPI' // Import your API
+import { FaTasks, FaCheckCircle, FaClock, FaPlus, FaFilter, FaCalendar, FaUser, FaTrash, FaEdit } from 'react-icons/fa'
 
 const TasksPage = ({ role }) => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [filter, setFilter] = useState('all')
+  const [loading, setLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [selectedTask, setSelectedTask] = useState(null)
   
-  // Mock tasks data
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: 'Complete tax forms',
-      description: 'Fill out all required tax documentation',
-      priority: 'High',
-      status: 'Completed',
-      dueDate: '2024-02-01',
-      assignedTo: 'John Doe',
-      category: 'Documentation'
-    },
-    {
-      id: 2,
-      title: 'Setup work email',
-      description: 'Configure your company email account',
-      priority: 'Medium',
-      status: 'Completed',
-      dueDate: '2024-02-01',
-      assignedTo: 'John Doe',
-      category: 'IT'
-    },
-    {
-      id: 3,
-      title: 'Complete security training',
-      description: 'Mandatory security awareness training',
-      priority: 'High',
-      status: 'In Progress',
-      dueDate: '2024-02-05',
-      assignedTo: 'John Doe',
-      category: 'Training'
-    },
-    {
-      id: 4,
-      title: 'Meet with manager',
-      description: 'Initial onboarding meeting with your manager',
-      priority: 'Medium',
-      status: 'Pending',
-      dueDate: '2024-02-06',
-      assignedTo: 'John Doe',
-      category: 'Meetings'
-    },
-    {
-      id: 5,
-      title: 'IT equipment setup',
-      description: 'Setup laptop, software, and access',
-      priority: 'Medium',
-      status: 'Pending',
-      dueDate: '2024-02-03',
-      assignedTo: 'John Doe',
-      category: 'IT'
-    }
-  ])
+  // Form states
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    priority: 'Medium',
+    dueDate: '',
+    category: '',
+    assignedTo: ''
+  })
+  
+  const [assignForm, setAssignForm] = useState({
+    employeeId: '',
+    dueDate: ''
+  })
+  
+  const [tasks, setTasks] = useState([])
 
-  const toggleTaskStatus = (taskId) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId) {
-        const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed'
-        return { ...task, status: newStatus }
+  // Fetch tasks on component mount
+  useEffect(() => {
+    fetchTasks()
+  }, [])
+
+  const fetchTasks = async () => {
+    setLoading(true)
+    const result = await taskAPI.getTasks()
+    if (result.success) {
+      setTasks(result.data)
+    } else {
+      console.error('Failed to fetch tasks:', result.error)
+    }
+    setLoading(false)
+  }
+
+  const toggleTaskStatus = async (taskId) => {
+    if (role === 'employee') {
+      const result = await taskAPI.completeTask(taskId)
+      if (result.success) {
+        fetchTasks() // Refresh tasks
       }
-      return task
-    }))
+    } else {
+      // For HR, update task status
+      const task = tasks.find(t => t.id === taskId)
+      if (task) {
+        const newStatus = task.status === 'Completed' ? 'Pending' : 'Completed'
+        const result = await taskAPI.updateTask(taskId, { ...task, status: newStatus })
+        if (result.success) {
+          fetchTasks() // Refresh tasks
+        }
+      }
+    }
+  }
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault()
+    const result = await taskAPI.createTask(taskForm)
+    if (result.success) {
+      setShowCreateModal(false)
+      setTaskForm({
+        title: '',
+        description: '',
+        priority: 'Medium',
+        dueDate: '',
+        category: '',
+        assignedTo: ''
+      })
+      fetchTasks() // Refresh tasks
+    }
+  }
+
+  const handleAssignTask = async (taskId) => {
+    const result = await taskAPI.assignTask(taskId, assignForm)
+    if (result.success) {
+      setShowAssignModal(false)
+      setAssignForm({
+        employeeId: '',
+        dueDate: ''
+      })
+      fetchTasks() // Refresh tasks
+    }
+  }
+
+  const handleDeleteTask = async (taskId) => {
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      const result = await taskAPI.deleteTask(taskId)
+      if (result.success) {
+        fetchTasks() // Refresh tasks
+      }
+    }
   }
 
   const filteredTasks = tasks.filter(task => {
@@ -95,6 +126,132 @@ const TasksPage = ({ role }) => {
       case 'In Progress': return 'bg-blue-100 text-blue-800'
       default: return 'bg-yellow-100 text-yellow-800'
     }
+  }
+
+  // Create Task Modal
+  const CreateTaskModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-8 max-w-md w-full">
+        <h3 className="text-2xl font-bold mb-6">Create New Task</h3>
+        <form onSubmit={handleCreateTask}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Title</label>
+              <input
+                type="text"
+                value={taskForm.title}
+                onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Description</label>
+              <textarea
+                value={taskForm.description}
+                onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                rows="3"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Priority</label>
+              <select
+                value={taskForm.priority}
+                onChange={(e) => setTaskForm({...taskForm, priority: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Due Date</label>
+              <input
+                type="date"
+                value={taskForm.dueDate}
+                onChange={(e) => setTaskForm({...taskForm, dueDate: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 px-4 py-2 border rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg"
+              >
+                Create Task
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+
+  // Assign Task Modal
+  const AssignTaskModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-8 max-w-md w-full">
+        <h3 className="text-2xl font-bold mb-6">Assign Task</h3>
+        <form onSubmit={(e) => { e.preventDefault(); handleAssignTask(selectedTask.id); }}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Employee ID/Email</label>
+              <input
+                type="text"
+                value={assignForm.employeeId}
+                onChange={(e) => setAssignForm({...assignForm, employeeId: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Due Date</label>
+              <input
+                type="date"
+                value={assignForm.dueDate}
+                onChange={(e) => setAssignForm({...assignForm, dueDate: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(false)}
+                className="flex-1 px-4 py-2 border rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg"
+              >
+                Assign Task
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading tasks...</div>
+      </div>
+    )
   }
 
   return (
@@ -154,7 +311,10 @@ const TasksPage = ({ role }) => {
               </div>
               
               {role === 'hr' && (
-                <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+                <button 
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                >
                   <FaPlus />
                   Create Task
                 </button>
@@ -181,16 +341,38 @@ const TasksPage = ({ role }) => {
                   </div>
                 </div>
                 
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(task.status)}`}>
-                  {task.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(task.status)}`}>
+                    {task.status}
+                  </span>
+                  {role === 'hr' && (
+                    <>
+                      <button
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <FaTrash />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedTask(task);
+                          setAssignForm({...assignForm, dueDate: task.dueDate});
+                          setShowAssignModal(true);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        <FaUser />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               <p className="text-gray-700 mb-6">{task.description}</p>
 
               <div className="flex justify-between items-center">
                 <div className="text-sm text-gray-600">
-                  {role === 'hr' && (
+                  {role === 'hr' && task.assignedTo && (
                     <div className="flex items-center gap-2">
                       <FaUser className="text-gray-400" />
                       <span>Assigned to: <strong>{task.assignedTo}</strong></span>
@@ -210,7 +392,7 @@ const TasksPage = ({ role }) => {
                       className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                     >
                       <FaCheckCircle />
-                      Mark Complete
+                      {role === 'hr' ? 'Mark Complete' : 'Complete Task'}
                     </button>
                   )}
                   
@@ -260,6 +442,10 @@ const TasksPage = ({ role }) => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showCreateModal && <CreateTaskModal />}
+      {showAssignModal && <AssignTaskModal />}
     </div>
   )
 }

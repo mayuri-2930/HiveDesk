@@ -128,31 +128,28 @@ export const authAPI = {
   },
 
   // Register new user
-  register: async (userData) => {
+  registerEmployee: async (employeeData, token) => {
     try {
-      const response = await api.post(`${API_BASE_URL}/auth/register`, userData);
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Registration API error:', error.response?.data || error.message);
-      
-      let errorMessage = 'Registration failed';
-      if (error.response?.data?.detail) {
-        if (Array.isArray(error.response.data.detail)) {
-          errorMessage = error.response.data.detail[0]?.msg || errorMessage;
-        } else {
-          errorMessage = error.response.data.detail;
-        }
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(employeeData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error registering employee:', error);
+      throw error;
     }
-  }
+  },
 };
 
 // Dashboard API
@@ -211,7 +208,7 @@ export const employeeAPI = {
       const encodedName = encodeUserName(name);
       console.log('Fetching employee details:', { encodedName, role: 'hr', employeeId });
       
-      const response = await api.get(`${API_BASE_URL}/${encodedName}/hr/manage/${employeeId}`);
+      const response = await api.get(`${API_BASE_URL}/employees/${employeeId}`);
       return {
         success: true,
         data: response.data
@@ -231,7 +228,7 @@ export const employeeAPI = {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.put(`${API_BASE_URL}/${encodedName}/hr/employees/${employeeId}`, employeeData);
+      const response = await api.put(`${API_BASE_URL}/employees/${employeeId}`, employeeData);
       return {
         success: true,
         data: response.data
@@ -251,7 +248,7 @@ export const employeeAPI = {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.delete(`${API_BASE_URL}/${encodedName}/hr/employees/${employeeId}`);
+      const response = await api.delete(`${API_BASE_URL}/employees/${employeeId}`);
       return {
         success: true,
         data: response.data
@@ -287,20 +284,15 @@ export const employeeAPI = {
 };
 
 // Task Management API
+// Task Management API
 export const taskAPI = {
   // Get Tasks (role-based: HR sees all, Employee sees assigned)
-  getTasks: async (page = 1, pageSize = 10) => {
+  getTasks: async () => {
     try {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
-      console.log('Fetching tasks for:', { encodedName,  });
       
-      const response = await api.get(`${API_BASE_URL}/tasks`, {
-        params: {
-          page,
-          page_size: pageSize
-        }
-      });
+      const response = await api.get(`${API_BASE_URL}/tasks/`);
       return {
         success: true,
         data: response.data
@@ -320,7 +312,7 @@ export const taskAPI = {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.post(`${API_BASE_URL}/${encodedName}/hr/tasks`, taskData);
+      const response = await api.post(`${API_BASE_URL}/tasks/`, taskData);
       return {
         success: true,
         data: response.data
@@ -340,7 +332,7 @@ export const taskAPI = {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.put(`${API_BASE_URL}/${encodedName}/hr/tasks/${taskId}`, taskData);
+      const response = await api.put(`${API_BASE_URL}/tasks/${taskId}`, taskData);
       return {
         success: true,
         data: response.data
@@ -360,7 +352,7 @@ export const taskAPI = {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.delete(`${API_BASE_URL}/${encodedName}/hr/tasks/${taskId}`);
+      const response = await api.delete(`${API_BASE_URL}/tasks/${taskId}`);
       return {
         success: true,
         data: response.data
@@ -375,12 +367,12 @@ export const taskAPI = {
   },
 
   // Assign Task (HR only)
-  assignTask: async (taskData) => {
+  assignTask: async (taskId, assigneeData) => {
     try {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.post(`${API_BASE_URL}/${encodedName}/hr/assign-task`, taskData);
+      const response = await api.post(`${API_BASE_URL}/tasks/${taskId}/assign`, assigneeData);
       return {
         success: true,
         data: response.data
@@ -395,12 +387,12 @@ export const taskAPI = {
   },
 
   // Complete Task (Employee only)
-  completeTask: async (taskData) => {
+  completeTask: async (taskId) => {
     try {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
       
-      const response = await api.post(`${API_BASE_URL}/${encodedName}/employee/tasks/complete`, taskData);
+      const response = await api.patch(`/api/tasks/${taskId}/complete`);
       return {
         success: true,
         data: response.data
