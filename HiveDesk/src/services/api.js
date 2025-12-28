@@ -183,9 +183,9 @@ export const employeeAPI = {
     try {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
-      console.log('Fetching employees for:', { encodedName, role: 'hr' });
+      console.log('Fetching employees for:', { encodedName });
       
-      const response = await api.get(`${API_BASE_URL}/${encodedName}/hr/employees`, {
+      const response = await api.get(`${API_BASE_URL}/employees`, {
         params: {
           page,
           page_size: pageSize
@@ -293,9 +293,9 @@ export const taskAPI = {
     try {
       const { name, role } = getUserParams();
       const encodedName = encodeUserName(name);
-      console.log('Fetching tasks for:', { encodedName, role });
+      console.log('Fetching tasks for:', { encodedName,  });
       
-      const response = await api.get(`${API_BASE_URL}/${encodedName}/${role}/tasks`, {
+      const response = await api.get(`${API_BASE_URL}/tasks`, {
         params: {
           page,
           page_size: pageSize
@@ -424,7 +424,7 @@ export const documentAPI = {
       const encodedName = encodeUserName(name);
       console.log('Fetching documents for:', { encodedName, role });
       
-      const response = await api.get(`${API_BASE_URL}/${encodedName}/${role}/documents`, {
+      const response = await api.get(`${API_BASE_URL}/documents`, {
         params: {
           page,
           page_size: pageSize
